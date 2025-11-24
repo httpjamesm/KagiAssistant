@@ -1,5 +1,6 @@
 package space.httpjames.kagiassistantmaterial
 
+import android.graphics.Bitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -50,6 +51,14 @@ data class AssistantThreadMessage(
     val content: String,
     val role: AssistantThreadMessageRole,
     val citations: List<Citation> = emptyList(),
+    val documents: List<AssistantThreadMessageDocument> = emptyList(),
+)
+
+data class AssistantThreadMessageDocument(
+    val id: String,
+    val name: String,
+    val mime: String,
+    val data: Bitmap?,
 )
 
 @JsonClass(generateAdapter = true)

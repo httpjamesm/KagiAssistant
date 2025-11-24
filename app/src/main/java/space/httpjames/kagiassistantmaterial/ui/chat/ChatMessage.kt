@@ -1,16 +1,25 @@
 package space.httpjames.kagiassistantmaterial.ui.chat
 
 import android.annotation.SuppressLint
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Arrangement.spacedBy
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -18,17 +27,23 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.google.accompanist.placeholder.PlaceholderHighlight
 import com.google.accompanist.placeholder.material3.placeholder
 import com.google.accompanist.placeholder.material3.shimmer
+import space.httpjames.kagiassistantmaterial.AssistantThreadMessageDocument
 import space.httpjames.kagiassistantmaterial.AssistantThreadMessageRole
 import space.httpjames.kagiassistantmaterial.Citation
 import space.httpjames.kagiassistantmaterial.R
@@ -43,6 +58,7 @@ fun ChatMessage(
     content: String,
     role: AssistantThreadMessageRole,
     citations: List<Citation> = emptyList(),
+    documents: List<AssistantThreadMessageDocument> = emptyList(),
 ) {
     val isMe = role == AssistantThreadMessageRole.USER
     val background = if (isMe) MaterialTheme.colorScheme.primary
@@ -54,83 +70,134 @@ fun ChatMessage(
 
     var showSourcesSheet by remember { mutableStateOf(false) }
 
+    val documentsScroll = rememberScrollState()
+
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 4.dp)
     ) {
-        Surface(
-            modifier = Modifier
-                .align(if (isMe) Alignment.CenterEnd else Alignment.CenterStart)
-                .then(if (isMe) Modifier.widthIn(max = maxWidth * 0.75f) else Modifier),
-            shape = shape,
-            color = background,
-            tonalElevation = 2.dp
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = if (isMe) Alignment.End else Alignment.Start
         ) {
-            if (isMe) {
-                Text(
-                    text = content,
-                    modifier = Modifier.padding(12.dp),
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            } else {
-                Column {
-                    Icon(
-                        painter = painterResource(R.drawable.fetch_ball_icon),
-                        contentDescription = "",
-                        tint = Color.Unspecified,
-                        modifier = Modifier.padding(12.dp).size(32.dp),
+            Surface(
+                shape = shape,
+                color = background,
+                tonalElevation = 2.dp
+            ) {
+                if (isMe) {
+                    Text(
+                        text = content,
+                        modifier = Modifier.padding(12.dp),
+                        style = MaterialTheme.typography.bodyMedium
                     )
+                } else {
+                    Column {
+                        Icon(
+                            painter = painterResource(R.drawable.fetch_ball_icon),
+                            contentDescription = "",
+                            tint = Color.Unspecified,
+                            modifier = Modifier.padding(12.dp).size(32.dp),
+                        )
 
-                    if (content.isEmpty()) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(20.dp)
-                                    .placeholder(
-                                        visible = true,
-                                        highlight = PlaceholderHighlight.shimmer(),
-                                    )
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth(0.8f)
-                                    .height(20.dp)
-                                    .placeholder(
-                                        visible = true,
-                                        highlight = PlaceholderHighlight.shimmer(),
-                                    )
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth(0.5f)
-                                    .height(20.dp)
-                                    .placeholder(
-                                        visible = true,
-                                        highlight = PlaceholderHighlight.shimmer(),
-                                    )
+                        if (content.isEmpty()) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(20.dp)
+                                        .placeholder(
+                                            visible = true,
+                                            highlight = PlaceholderHighlight.shimmer(),
+                                        )
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth(0.8f)
+                                        .height(20.dp)
+                                        .placeholder(
+                                            visible = true,
+                                            highlight = PlaceholderHighlight.shimmer(),
+                                        )
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth(0.5f)
+                                        .height(20.dp)
+                                        .placeholder(
+                                            visible = true,
+                                            highlight = PlaceholderHighlight.shimmer(),
+                                        )
+                                )
+                            }
+                        } else {
+                            HtmlCard(html = HtmlPreprocessor.preprocess(content), key = id,)
+                        }
+
+                        if (citations.isNotEmpty()) {
+                            SourcesButton(
+                                domains = citations.take(3).map { URI(it.url).host ?: "" },
+                                text = "Sources",
+                                onClick = {
+                                    showSourcesSheet = true
+                                }
                             )
                         }
-                    } else {
-                        HtmlCard(html = HtmlPreprocessor.preprocess(content), key = id, )
-                    }
-
-                    if (citations.isNotEmpty()) {
-                        SourcesButton(
-                            domains = citations.take(3).map { URI(it.url).host?: "" },
-                            text = "Sources",
-                            onClick = {
-                                showSourcesSheet = true
-                            }
-                        )
                     }
                 }
             }
 
-
+            if (documents.isNotEmpty()) {
+                Row(modifier = Modifier.padding(start = 12.dp, top = 12.dp).fillMaxWidth().horizontalScroll(documentsScroll), horizontalArrangement = spacedBy(8.dp),) {
+                    Spacer(modifier = Modifier.weight(1f))
+                    key(documents) {
+                        documents.forEach { document ->
+                            if (document.data != null) {
+                                Surface(
+                                    modifier = Modifier
+                                        .size(84.dp).background(
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = MaterialTheme.colorScheme.background
+                                        )
+                                ) {
+                                    Image(
+                                        bitmap = document.data.asImageBitmap(),
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentDescription = null,
+                                    )
+                                }
+                            } else {
+                                Box(modifier = Modifier.width(200.dp).height(84.dp).background(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant
+                                )) {
+                                    Column(
+                                        verticalArrangement = Arrangement.Center,
+                                        modifier = Modifier.fillMaxSize()
+                                    ) {
+                                        Column(modifier = Modifier.fillMaxSize().padding(8.dp)) {
+                                            Text(
+                                                text = document.name,
+                                                fontWeight = FontWeight.Bold,
+                                                maxLines = 2,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Text(
+                                                text = document.mime,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                modifier = Modifier.alpha(0.8f)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 

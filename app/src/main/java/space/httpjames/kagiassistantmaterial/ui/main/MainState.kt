@@ -1,5 +1,7 @@
 package space.httpjames.kagiassistantmaterial.ui.main
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import androidx.compose.material3.DrawerState
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.rememberDrawerState
@@ -9,6 +11,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -22,8 +26,11 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.jsoup.Jsoup
+import space.httpjames.kagiassistantmaterial.AssistantThreadMessageDocument
 import space.httpjames.kagiassistantmaterial.AssistantThreadMessageRole
 import space.httpjames.kagiassistantmaterial.Citation
+import kotlin.io.encoding.Base64
+import kotlin.io.encoding.ExperimentalEncodingApi
 
 @Composable
 fun rememberMainState(
@@ -82,11 +89,34 @@ class MainState(
                             for (message in messages.jsonArray) {
                                 println(message)
                                 val obj = message.jsonObject
+                                val parsedDocuments = mutableListOf<AssistantThreadMessageDocument>()
+
+                                val documents = obj["documents"]?.jsonArray ?: emptyList()
+
+                                for (document in documents) {
+                                    val obj = document.jsonObject
+
+                                    val mime = obj["mime"]?.jsonPrimitive?.contentOrNull ?: ""
+                                    var data: Bitmap? = null
+                                    val b64 = obj["data"]?.jsonPrimitive?.contentOrNull ?: ""
+                                    if (mime.startsWith("image") && b64.isNotEmpty()) {
+                                        b64.decodeDataUriToBitmap().also { data = it }
+                                    }
+
+                                    parsedDocuments += AssistantThreadMessageDocument(
+                                        obj["id"]?.jsonPrimitive?.contentOrNull ?: "",
+                                        obj["name"]?.jsonPrimitive?.contentOrNull ?: "",
+                                        mime,
+                                        data,
+                                    )
+                                }
+
                                 threadMessages += AssistantThreadMessage(
                                     obj["id"]?.jsonPrimitive?.contentOrNull ?: "",
                                     obj["prompt"]?.jsonPrimitive?.contentOrNull ?: "",
                                     AssistantThreadMessageRole.USER,
                                     emptyList(),
+                                    parsedDocuments,
                                 )
                                 val citations = parseReferencesHtml(obj["references_html"]?.jsonPrimitive?.contentOrNull ?: "")
                                 println(citations)
@@ -124,6 +154,18 @@ fun parseReferencesHtml(html: String): List<Citation> =
     Jsoup.parse(html)
         .select("ol[data-ref-list] > li > a[href]")
         .map { a -> Citation(url = a.attr("abs:href"), title = a.text()) }
+
+
+
+@OptIn(ExperimentalEncodingApi::class)
+fun String.decodeDataUriToBitmap(): Bitmap {
+    val afterPrefix = substringAfter("base64,")
+    require(afterPrefix != this) { "Malformed data-URI: missing 'base64,' segment" }
+
+    val decodedBytes = Base64.decode(afterPrefix, 0)
+    return BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)
+        ?: error("Failed to decode bytes into Bitmap (invalid image data)")
+}
 
 
 

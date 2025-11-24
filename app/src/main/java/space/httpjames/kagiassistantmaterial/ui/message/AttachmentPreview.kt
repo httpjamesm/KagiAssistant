@@ -43,7 +43,7 @@ import coil.compose.AsyncImage
 import androidx.core.net.toUri
 
 @Composable
-fun AttachmentPreview(uri: String, onRemove: (uri: String) -> Unit) {
+fun AttachmentPreview(uri: String, onRemove: (uri: String) -> Unit, readOnly: Boolean = false) {
     val parsedUri = remember(uri) { uri.toUri() }
     var showPreview by rememberSaveable { mutableStateOf(false) }
     val ctx = LocalContext.current

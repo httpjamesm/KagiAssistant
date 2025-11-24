@@ -42,7 +42,7 @@ fun ChatArea(
         ) {
             threadMessages.forEach { threadMessage ->
                 key(threadMessage.id) {
-                    ChatMessage(id = threadMessage.id, content = threadMessage.content, role = threadMessage.role, citations = threadMessage.citations)
+                    ChatMessage(id = threadMessage.id, content = threadMessage.content, role = threadMessage.role, citations = threadMessage.citations, documents = threadMessage.documents)
                 }
             }
         }
