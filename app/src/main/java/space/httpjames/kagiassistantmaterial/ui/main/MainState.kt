@@ -46,22 +46,27 @@ class MainState(
     val drawerState: DrawerState,
     val coroutineScope: CoroutineScope
 ) {
+    var threadsLoading by mutableStateOf(false)
+        private set
     var threads by mutableStateOf<Map<String, List<AssistantThread>>>(emptyMap())
         private set
     var currentThreadId by mutableStateOf<String?>(null)
         private set
+    var threadMessagesLoading by mutableStateOf(false)
+        private set
     var threadMessages by mutableStateOf<List<AssistantThreadMessage>>(emptyList())
 
     fun fetchThreads() {
+        threadsLoading = true
         coroutineScope.launch {
             withContext(Dispatchers.IO) {
                 threads = assistantClient.getThreads()
+                threadsLoading = false
             }
         }
     }
 
     fun newChat() {
-        println("new chat clicked")
         currentThreadId = null
         threadMessages = emptyList()
         coroutineScope.launch {
@@ -73,6 +78,7 @@ class MainState(
         currentThreadId = threadId
         coroutineScope.launch {
             try {
+                threadMessagesLoading = true
                 assistantClient.fetchStream(
                     streamId = "8ce77b1b-35c5-4262-8821-af3b33d1cf0f",
                     url = "https://kagi.com/assistant/thread_open",
@@ -127,6 +133,8 @@ class MainState(
                                     citations
                                 )
                             }
+
+                            threadMessagesLoading = false
                         }
                     }
                 )

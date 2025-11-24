@@ -1,12 +1,14 @@
 package space.httpjames.kagiassistantmaterial.ui.main
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -29,6 +31,7 @@ import space.httpjames.kagiassistantmaterial.AssistantThread
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ThreadsDrawerSheet(
+    isLoading: Boolean,
     threads: Map<String, List<AssistantThread>>,
     onThreadSelected: (String) -> Unit,
     modifier: Modifier = Modifier
@@ -70,10 +73,21 @@ fun ThreadsDrawerSheet(
         }
 
         if (!active) {
-            ThreadList(
-                threads = filteredThreads,
-                onItemClick = onThreadSelected
-            )
+            if (isLoading && threads.isEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            } else {
+                ThreadList(
+                    threads = filteredThreads,
+                    onItemClick = onThreadSelected
+                )
+            }
         }
     }
 }
