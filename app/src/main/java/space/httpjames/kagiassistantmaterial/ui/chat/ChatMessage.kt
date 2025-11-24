@@ -89,7 +89,7 @@ fun ChatMessage(
                 if (isMe) {
                     Text(
                         text = content,
-                        modifier = Modifier.padding(12.dp),
+                        modifier = Modifier.padding(12.dp).widthIn(max = this@BoxWithConstraints.maxWidth * 0.7f),
                         style = MaterialTheme.typography.bodyMedium
                     )
                 } else {
