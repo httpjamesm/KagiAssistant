@@ -208,6 +208,7 @@ fun BouncingBall() {
             modifier = Modifier
                 .offset(y = offsetY.dp)
                 .rotate(rotation)
+                .padding(start = 24.dp)
                 .size(300.dp),
             tint = Color.Unspecified
         )
