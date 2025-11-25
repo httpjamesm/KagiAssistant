@@ -34,6 +34,7 @@ fun HtmlCard(
     key: String,
     modifier: Modifier = Modifier,
     minHeight: Int = MIN_WEBVIEW_HEIGHT,
+    onHeightMeasured: (() -> Unit)? = null,
 ) {
     var isLoading by remember { mutableStateOf(true) }
     var heightState by remember { mutableIntStateOf(minHeight) }
@@ -71,6 +72,7 @@ fun HtmlCard(
                                 onHeightMeasured = { h ->
                                     heightState = h
                                     isLoading = false
+                                    onHeightMeasured?.invoke()
                                 }
 
                             ),

@@ -71,6 +71,7 @@ fun ChatMessage(
     citations: List<Citation> = emptyList(),
     documents: List<AssistantThreadMessageDocument> = emptyList(),
     onEdit: () -> Unit,
+    onHeightMeasured: (() -> Unit)? = null,
 ) {
     val isMe = role == AssistantThreadMessageRole.USER
     val background = if (isMe) MaterialTheme.colorScheme.primary
@@ -159,7 +160,7 @@ fun ChatMessage(
                                     )
                                 }
                             } else {
-                                HtmlCard(html = HtmlPreprocessor.preprocess(content), key = id,)
+                                HtmlCard(html = HtmlPreprocessor.preprocess(content), key = id, onHeightMeasured = onHeightMeasured)
                             }
 
                             if (citations.isNotEmpty()) {

@@ -17,7 +17,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -26,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.android.awaitFrame
 import space.httpjames.kagiassistantmaterial.AssistantClient
 import space.httpjames.kagiassistantmaterial.AssistantThreadMessage
+import space.httpjames.kagiassistantmaterial.AssistantThreadMessageRole
 import space.httpjames.kagiassistantmaterial.R
 
 @Composable
@@ -39,6 +45,9 @@ fun ChatArea(
 ) {
 
     val scrollState = rememberScrollState()
+    var pendingMeasurements by remember { mutableIntStateOf(0) }
+    var measurementComplete by remember { mutableStateOf(false) }
+    var previousThreadId by remember { mutableStateOf<String?>(null) }
 
     Crossfade(targetState = threadMessages.isEmpty(), modifier = modifier, animationSpec = tween(durationMillis = 1200), label = "ChatAreaCrossfade") {
         if (isLoading) {
@@ -66,7 +75,15 @@ fun ChatArea(
                             documents = threadMessage.documents,
                             onEdit = {
                                 onEdit(threadMessage.id)
+                            },
+                            onHeightMeasured = {
+                                pendingMeasurements--
+                                println("pendingMeasurements $pendingMeasurements")
+                                if (pendingMeasurements <= 0) {
+                                    measurementComplete = true
+                                }
                             }
+
                         )
                     }
                 }
@@ -99,10 +116,27 @@ fun ChatArea(
     }
 
 
-    LaunchedEffect(currentThreadId, ) {
-        if (threadMessages.isNotEmpty()) {
+    LaunchedEffect(currentThreadId) {
+        if (currentThreadId != previousThreadId) {
+            pendingMeasurements =
+                threadMessages.count { it.role == AssistantThreadMessageRole.ASSISTANT }
+            measurementComplete = false
+        }
+    }
+
+    LaunchedEffect(currentThreadId, measurementComplete) {
+        if (threadMessages.isNotEmpty() && measurementComplete && currentThreadId != previousThreadId) {
             awaitFrame()
             scrollState.scrollTo(scrollState.maxValue)
+            previousThreadId = currentThreadId  // Update AFTER scroll
+            measurementComplete = false
         }
+    }
+
+
+    LaunchedEffect(currentThreadId) {
+        pendingMeasurements =
+            threadMessages.count { it.role == AssistantThreadMessageRole.ASSISTANT }
+        measurementComplete = false
     }
 }
