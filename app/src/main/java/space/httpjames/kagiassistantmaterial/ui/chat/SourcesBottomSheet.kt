@@ -46,11 +46,12 @@ fun SourcesBottomSheet(
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.fillMaxWidth()) {
             citations.forEach { citation ->
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)
                         .clickable {
                             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(citation.url))
                             context.startActivity(intent)
@@ -79,7 +80,8 @@ fun SourcesBottomSheet(
                         )
                         Spacer(modifier = Modifier.padding(start = 16.dp))
                     }
-                    Column {
+                    Column(
+                    ) {
                         Text(text = citation.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(text = URI(citation.url).host?: "", style = MaterialTheme.typography.bodySmall, color = LocalContentColor.current.copy(alpha = 0.6f)  )
                     }
