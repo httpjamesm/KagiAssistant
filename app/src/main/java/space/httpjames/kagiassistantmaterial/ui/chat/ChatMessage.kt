@@ -1,8 +1,10 @@
 package space.httpjames.kagiassistantmaterial.ui.chat
 
 import android.annotation.SuppressLint
+import android.content.ClipData
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Arrangement.spacedBy
@@ -21,6 +23,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -30,19 +34,26 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.google.accompanist.placeholder.PlaceholderHighlight
 import com.google.accompanist.placeholder.material3.placeholder
 import com.google.accompanist.placeholder.material3.shimmer
+import kotlinx.coroutines.launch
 import space.httpjames.kagiassistantmaterial.AssistantThreadMessageDocument
 import space.httpjames.kagiassistantmaterial.AssistantThreadMessageRole
 import space.httpjames.kagiassistantmaterial.Citation
@@ -69,8 +80,13 @@ fun ChatMessage(
         RoundedCornerShape(0.dp)
 
     var showSourcesSheet by remember { mutableStateOf(false) }
+    var menuExpanded by remember { mutableStateOf(false) }
 
     val documentsScroll = rememberScrollState()
+
+    val clipboard = LocalClipboard.current
+
+    val coroutineScope = rememberCoroutineScope()
 
     BoxWithConstraints(
         modifier = Modifier
@@ -81,73 +97,93 @@ fun ChatMessage(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = if (isMe) Alignment.End else Alignment.Start
         ) {
-            Surface(
-                shape = shape,
-                color = background,
-                tonalElevation = 2.dp
-            ) {
-                if (isMe) {
-                    Text(
-                        text = content,
-                        modifier = Modifier.padding(12.dp).widthIn(max = this@BoxWithConstraints.maxWidth * 0.7f),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                } else {
-                    Column {
-                        Icon(
-                            painter = painterResource(R.drawable.fetch_ball_icon),
-                            contentDescription = "",
-                            tint = Color.Unspecified,
-                            modifier = Modifier.padding(12.dp).size(32.dp),
+            Box {
+                Surface(
+                    shape = shape,
+                    color = background,
+                    tonalElevation = 2.dp,
+                    modifier = Modifier.pointerInput(Unit) {
+                        detectTapGestures(
+                            onLongPress = {
+                                menuExpanded = true
+                            }
                         )
+                    }
+                ) {
+                    if (isMe) {
+                        Text(
+                            text = content,
+                            modifier = Modifier.padding(12.dp).widthIn(max = this@BoxWithConstraints.maxWidth * 0.7f),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    } else {
+                        Column {
+                            Icon(
+                                painter = painterResource(R.drawable.fetch_ball_icon),
+                                contentDescription = "",
+                                tint = Color.Unspecified,
+                                modifier = Modifier.padding(12.dp).size(32.dp),
+                            )
 
-                        if (content.isEmpty()) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(20.dp)
-                                        .placeholder(
-                                            visible = true,
-                                            highlight = PlaceholderHighlight.shimmer(),
-                                        )
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth(0.8f)
-                                        .height(20.dp)
-                                        .placeholder(
-                                            visible = true,
-                                            highlight = PlaceholderHighlight.shimmer(),
-                                        )
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth(0.5f)
-                                        .height(20.dp)
-                                        .placeholder(
-                                            visible = true,
-                                            highlight = PlaceholderHighlight.shimmer(),
-                                        )
+                            if (content.isEmpty()) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(20.dp)
+                                            .placeholder(
+                                                visible = true,
+                                                highlight = PlaceholderHighlight.shimmer(),
+                                            )
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth(0.8f)
+                                            .height(20.dp)
+                                            .placeholder(
+                                                visible = true,
+                                                highlight = PlaceholderHighlight.shimmer(),
+                                            )
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth(0.5f)
+                                            .height(20.dp)
+                                            .placeholder(
+                                                visible = true,
+                                                highlight = PlaceholderHighlight.shimmer(),
+                                            )
+                                    )
+                                }
+                            } else {
+                                HtmlCard(html = HtmlPreprocessor.preprocess(content), key = id,)
+                            }
+
+                            if (citations.isNotEmpty()) {
+                                SourcesButton(
+                                    domains = citations.take(3).map { URI(it.url).host ?: "" },
+                                    text = "Sources",
+                                    onClick = {
+                                        showSourcesSheet = true
+                                    }
                                 )
                             }
-                        } else {
-                            HtmlCard(html = HtmlPreprocessor.preprocess(content), key = id,)
-                        }
-
-                        if (citations.isNotEmpty()) {
-                            SourcesButton(
-                                domains = citations.take(3).map { URI(it.url).host ?: "" },
-                                text = "Sources",
-                                onClick = {
-                                    showSourcesSheet = true
-                                }
-                            )
                         }
                     }
                 }
+
+                ChatMessageDropdownMenu(
+                    menuExpanded = menuExpanded,
+                    onDismissRequest = { menuExpanded = false },
+                    isMe = isMe,
+                    onCopy = {
+                        coroutineScope.launch {
+                            clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("message", content)))
+                        }
+                    }
+                )
             }
 
             if (documents.isNotEmpty()) {
