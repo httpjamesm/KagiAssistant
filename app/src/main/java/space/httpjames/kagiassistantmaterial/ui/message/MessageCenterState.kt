@@ -39,6 +39,8 @@ import java.util.UUID
 import android.media.ThumbnailUtils
 import android.provider.OpenableColumns
 import android.util.Size
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.FileOutputStream
 
 @Composable
@@ -53,8 +55,8 @@ fun rememberMessageCenterState(
     val context = LocalContext.current
     val prefs = context.getSharedPreferences("assistant_prefs", Context.MODE_PRIVATE)
 
-    val currentThreadMessages = rememberUpdatedState(threadMessages)
-    val currentSetThreadMessages = rememberUpdatedState(setThreadMessages)
+//    val currentThreadMessages = rememberUpdatedState(threadMessages)
+//    val currentSetThreadMessages = rememberUpdatedState(setThreadMessages)
 
     return remember(assistantClient, coroutineScope, prefs) {
         MessageCenterState(
@@ -62,8 +64,9 @@ fun rememberMessageCenterState(
             prefs,
             assistantClient,
             coroutineScope,
-            { currentThreadMessages.value },
-            { currentSetThreadMessages.value(it) },
+            { threadMessages },
+//            { currentSetThreadMessages.value(it) }, ,
+            setThreadMessages,
             setCurrentThreadId,
             context
         )
@@ -180,8 +183,7 @@ class MessageCenterState(
         }
     }
 
-
-    fun setThreadMessages(transform: (List<AssistantThreadMessage>) -> List<AssistantThreadMessage>) {
+    fun updateThreadMessages(transform: (List<AssistantThreadMessage>) -> List<AssistantThreadMessage>) {
         setThreadMessages(transform(getThreadMessages()))
     }
 
@@ -211,23 +213,23 @@ class MessageCenterState(
         var messageId = UUID.randomUUID().toString()
         inProgressAssistantMessageId = messageId
 
-        // Local copy for stream processing
+        // Local accumulator - the source of truth during streaming
         var localMessages = getThreadMessages()
 
-        setThreadMessages({ current ->
-            localMessages = current + AssistantThreadMessage(
-                id = messageId,
-                content = text,
-                role = AssistantThreadMessageRole.USER,
-            )
-            localMessages
-        })
-
+        // Add user message
+        localMessages = localMessages + AssistantThreadMessage(
+            id = messageId,
+            content = text,
+            role = AssistantThreadMessageRole.USER,
+        )
+        setThreadMessages(localMessages) // Direct call to the constructor param
 
         coroutineScope.launch {
             val streamId = UUID.randomUUID().toString()
+            var lastTokenUpdateTime = 0L
 
-            val latestAssistantMessageId = getThreadMessages().lastOrNull { it.role == AssistantThreadMessageRole.ASSISTANT }?.id
+            val assistantMessages = localMessages.filter { it.role == AssistantThreadMessageRole.USER }
+            val latestAssistantMessageId = assistantMessages.takeLast(1).firstOrNull()?.id
 
             val focus = KagiPromptRequestFocus(
                 threadId,
@@ -247,99 +249,103 @@ class MessageCenterState(
                     getProfile()?.id ?: "",
                     false,
                 ),
-                // todo: regeneration edit logic requires undefined (which actually means omission)
-                listOf(
-                    KagiPromptRequestThreads(
-                        listOf(),
-                        true,
-                        false
-                    )
-                )
+                listOf(KagiPromptRequestThreads(listOf(), true, false))
             )
 
-            val url = "https://kagi.com/assistant/prompt" // todo: needs message_regenerate handling
+            val url = "https://kagi.com/assistant/prompt"
 
             val moshi = Moshi.Builder()
                 .add(com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory())
                 .build()
-
             val jsonAdapter = moshi.adapter(KagiPromptRequest::class.java)
             val jsonString = jsonAdapter.toJson(requestBody)
 
             fun onChunk(chunk: StreamChunk) {
-                if (chunk.header == "thread.json") {
-                    // get the id and call the setter
-                    val json = Json.parseToJsonElement(chunk.data)
-                    val obj = json.jsonObject
-                    val id = obj["id"]?.jsonPrimitive?.contentOrNull
-                    setCurrentThreadId(id)
-                }
+                when (chunk.header) {
+                    "thread.json" -> {
+                        val json = Json.parseToJsonElement(chunk.data)
+                        val id = json.jsonObject["id"]?.jsonPrimitive?.contentOrNull
+                        if (id != null) setCurrentThreadId(id)
+                    }
 
-                if (chunk.header == "new_message.json") {
-                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    val json = Json.parseToJsonElement(chunk.data)
-                    val obj = json.jsonObject
-                    val text = obj["reply"]?.jsonPrimitive?.contentOrNull ?: ""
-                    val id = obj["id"]?.jsonPrimitive?.contentOrNull ?: ""
-                    val citations = obj["references_html"]?.jsonPrimitive?.contentOrNull ?: ""
+                    "new_message.json" -> {
+                        val json = Json.parseToJsonElement(chunk.data)
+                        val obj = json.jsonObject
+                        val newText = obj["reply"]?.jsonPrimitive?.contentOrNull ?: ""
+                        val id = obj["id"]?.jsonPrimitive?.contentOrNull ?: ""
+                        val citationsHtml = obj["references_html"]?.jsonPrimitive?.contentOrNull ?: ""
 
-                    inProgressAssistantMessageId = id
-                    messageId = id
+                        inProgressAssistantMessageId = id
+                        messageId = id
 
-                    // Update local state first
-                    if (localMessages.find { it.id == id } != null) {
-                        var preparedCitations: List<Citation> = emptyList()
-                        if (citations.isNotBlank()) {
-                            preparedCitations = parseReferencesHtml(obj["references_html"]?.jsonPrimitive?.contentOrNull ?: "")
+                        val preparedCitations = if (citationsHtml.isNotBlank()) {
+                            parseReferencesHtml(citationsHtml)
+                        } else emptyList()
+
+                        // Update local accumulator
+                        val exists = localMessages.any { it.id == id }
+                        localMessages = if (exists) {
+                            localMessages.map {
+                                if (it.id == id) it.copy(content = newText, citations = preparedCitations)
+                                else it
+                            }
+                        } else {
+                            localMessages + AssistantThreadMessage(
+                                id = id,
+                                content = newText,
+                                role = AssistantThreadMessageRole.ASSISTANT,
+                                citations = preparedCitations,
+                            )
                         }
+
+                        // Always sync immediately for structural changes
+                        coroutineScope.launch(Dispatchers.Main.immediate) {
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            setThreadMessages(localMessages)
+                            println("new message.json: $localMessages")
+                            println("setting thread messages to localMessages")
+                        }
+                    }
+
+                    "tokens.json" -> {
+                        val json = Json.parseToJsonElement(chunk.data)
+                        val obj = json.jsonObject
+                        val newText = obj["text"]?.jsonPrimitive?.contentOrNull ?: ""
+                        val incomingId = obj["id"]?.jsonPrimitive?.contentOrNull ?: ""
+
+                        // Always update local accumulator immediately
                         localMessages = localMessages.map {
-                            if (it.id == id) it.copy(content = text, citations = preparedCitations) else it
+                            if (it.id == incomingId) it.copy(content = newText)
+                            else it
                         }
-                    } else {
-                        localMessages = localMessages + AssistantThreadMessage(
-                            id = id,
-                            content = text,
-                            role = AssistantThreadMessageRole.ASSISTANT,
-                        )
-                    }
-                    // Then sync to parent
-                    setThreadMessages { localMessages }
-                }
 
-                if (chunk.header == "tokens.json") {
-                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    val json = Json.parseToJsonElement(chunk.data)
-                    val obj = json.jsonObject
-                    val text = obj["text"]?.jsonPrimitive?.contentOrNull ?: ""
-                    val incomingId = obj["id"]?.jsonPrimitive?.contentOrNull ?: ""
+                        println(localMessages)
 
-                    // Use local state, not getThreadMessages()
-                    localMessages = localMessages.map {
-                        if (it.id == incomingId)
-                            it.copy(content = text)
-                        else
-                            it
+                        // Throttle parent sync for performance
+                        val currentTime = System.currentTimeMillis()
+                        if ((currentTime - lastTokenUpdateTime) >= 32) {
+                            lastTokenUpdateTime = currentTime
+                            coroutineScope.launch(Dispatchers.Main.immediate) {
+                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                setThreadMessages(localMessages)
+                            }
+                        }
                     }
-                    // Sync to parent
-                    setThreadMessages { localMessages }
                 }
             }
+
             if (attachmentUris.isNotEmpty()) {
                 val files = mutableListOf<File>()
                 val thumbnails = mutableListOf<File?>()
                 val mimeTypes = mutableListOf<String>()
 
-                for (uri in attachmentUris) {
-                    val uri = Uri.parse(uri)
+                for (uriStr in attachmentUris) {
+                    val uri = Uri.parse(uriStr)
                     mimeTypes += context.contentResolver.getType(uri) ?: "application/octet-stream"
-
                     val fileName = context.getFileName(uri) ?: "Unknown"
-
-                    // 1. copy content to a temp file
-                    val file = uri.copyToTempFile(context, "."+fileName.substringAfterLast("."))
-
+                    val file = uri.copyToTempFile(context, "." + fileName.substringAfterLast("."))
                     files += file
-                    thumbnails += if (uri.toString().endsWith(".webp") || uri.toString().endsWith(".jpg")) {
+                    thumbnails += if (uriStr.endsWith(".webp") || uriStr.endsWith(".jpg")) {
                         file.to84x84ThumbFile()
                     } else null
                 }
@@ -351,9 +357,8 @@ class MessageCenterState(
                     files = files,
                     thumbnails = thumbnails,
                     mimeTypes = mimeTypes,
-                    onChunk = { chunk ->  onChunk(chunk) }
+                    onChunk = ::onChunk
                 )
-
                 attachmentUris = emptyList()
             } else {
                 assistantClient.fetchStream(
@@ -362,8 +367,14 @@ class MessageCenterState(
                     method = "POST",
                     body = jsonString,
                     extraHeaders = mapOf("Content-Type" to "application/json"),
-                    onChunk = { chunk ->  onChunk(chunk) }
+                    onChunk = { chunk -> onChunk(chunk) }
                 )
+            }
+
+            // Final sync to catch any remaining updates
+            withContext(Dispatchers.Main) {
+                setThreadMessages(localMessages)
+                inProgressAssistantMessageId = null
             }
         }
     }

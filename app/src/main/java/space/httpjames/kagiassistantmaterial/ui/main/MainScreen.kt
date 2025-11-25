@@ -70,7 +70,8 @@ fun MainScreen(
                     modifier = Modifier
                         .padding(innerPadding)
                         .weight(1f),
-                    isLoading = state.threadMessagesLoading
+                    isLoading = state.threadMessagesLoading,
+                    currentThreadId = state.currentThreadId,
                 )
                 MessageCenter(
                     threadId = state.currentThreadId,

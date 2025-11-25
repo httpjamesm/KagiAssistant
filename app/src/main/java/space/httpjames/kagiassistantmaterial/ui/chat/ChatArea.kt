@@ -36,6 +36,7 @@ fun ChatArea(
     currentThreadId: String?,
     threadMessages: List<AssistantThreadMessage>,
 ) {
+
     val scrollState = rememberScrollState()
 
     Crossfade(targetState = threadMessages.isEmpty(), modifier = modifier, animationSpec = tween(durationMillis = 1200), label = "ChatAreaCrossfade") {

@@ -25,10 +25,12 @@ import kotlin.coroutines.resumeWithException
 import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
+import kotlinx.coroutines.CoroutineDispatcher
 import okio.Buffer
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
+import kotlin.coroutines.coroutineContext
 
 data class AssistantThread(
     val id: String,
@@ -227,18 +229,24 @@ class AssistantClient(private val sessionToken: String, private val ignoredChunk
         method: String = "POST",
         extraHeaders: Map<String, String> = emptyMap(),
         onChunk: suspend (StreamChunk) -> Unit,
-    ) = withContext(Dispatchers.IO) {
-        doStreamRequest(
-            streamId = streamId,
-            request = buildRequest(url, method, body, extraHeaders),
-            onChunk = { chunk ->
-                // Switch to the caller's context for the callback
-                withContext(coroutineContext) {
-                    onChunk(chunk)
-                }
-            },
-        )
+    ) {
+        // Capture the caller's dispatcher BEFORE switching to IO
+        val callerDispatcher = coroutineContext[CoroutineDispatcher] ?: Dispatchers.Main
+
+        withContext(Dispatchers.IO) {
+            doStreamRequest(
+                streamId = streamId,
+                request = buildRequest(url, method, body, extraHeaders),
+                onChunk = { chunk ->
+                    // Dispatch to caller's context for the callback
+                    withContext(callerDispatcher) {
+                        onChunk(chunk)
+                    }
+                },
+            )
+        }
     }
+
 
     suspend fun sendMultipartRequest(
         streamId: String,

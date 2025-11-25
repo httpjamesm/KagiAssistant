@@ -13,6 +13,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -90,16 +91,18 @@ fun HtmlCard(
 
                         val styledHtml = wrapHtmlWithStyles(html, cssScheme)
                         loadDataWithBaseURL(null, styledHtml, "text/html", "utf-8", null)
+                        tag = html
                     }
                 },
                 update = { webView ->
-                    // Only reload if html content changed
-                    if (webView.url != "about:blank") {  // Skip first load
+                    val lastHtml = webView.tag as? String
+                    if (lastHtml != html) {
                         val night = (context.resources.configuration.uiMode and
                                 Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
                         val cssScheme = if (night) "dark" else "light"
                         val styledHtml = wrapHtmlWithStyles(html, cssScheme)
                         webView.loadDataWithBaseURL(null, styledHtml, "text/html", "utf-8", null)
+                        webView.tag = html  // Update tracked content
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
