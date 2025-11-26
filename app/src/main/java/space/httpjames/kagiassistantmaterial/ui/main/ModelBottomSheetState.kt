@@ -82,9 +82,13 @@ class ModelBottomSheetState(
                         val parsedProfiles = profilesJson.map { profile ->
                             println(profile)
                             val obj = profile.jsonObject
+                            val key = obj["id"]?.jsonPrimitive?.contentOrNull
+                                ?: obj["model"]?.jsonPrimitive?.contentOrNull
+                            if (key == null) {
+                                throw IllegalStateException("Profile key is null")
+                            }
                             AssistantProfile(
-                                obj["id"]?.jsonPrimitive?.contentOrNull
-                                    ?: obj["model"]?.jsonPrimitive?.contentOrNull ?: "",
+                                key,
                                 obj["id"]?.jsonPrimitive?.contentOrNull,
                                 obj["model"]?.jsonPrimitive?.contentOrNull ?: "",
                                 obj["model_provider"]?.jsonPrimitive?.contentOrNull ?: "",

@@ -95,7 +95,7 @@ fun ModelBottomSheet(
                         }
                         items(recentlyUsedProfiles) { profile ->
                             val selectedProfile = state.getProfile()
-                            val isSelected = selectedProfile?.id == profile.id
+                            val isSelected = selectedProfile?.key == profile.key
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -153,7 +153,7 @@ fun ModelBottomSheet(
                         }
                         items(profilesInFamily) { profile ->
                             val selectedProfile = state.getProfile()
-                            val isSelected = selectedProfile?.id == profile.id
+                            val isSelected = selectedProfile?.key == profile.key
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
