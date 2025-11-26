@@ -414,6 +414,8 @@ class MessageCenterState(
                     } else null
                 }
 
+                attachmentUris = emptyList()
+
                 assistantClient.sendMultipartRequest(
                     streamId = streamId,
                     url = url,
@@ -423,7 +425,6 @@ class MessageCenterState(
                     mimeTypes = mimeTypes,
                     onChunk = ::onChunk
                 )
-                attachmentUris = emptyList()
             } else {
                 assistantClient.fetchStream(
                     streamId = streamId,
