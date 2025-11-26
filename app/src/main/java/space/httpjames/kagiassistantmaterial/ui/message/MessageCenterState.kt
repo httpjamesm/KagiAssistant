@@ -3,6 +3,7 @@ package space.httpjames.kagiassistantmaterial.ui.message
 import android.content.Context
 import android.content.SharedPreferences
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.media.ThumbnailUtils
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -32,6 +33,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import space.httpjames.kagiassistantmaterial.AssistantClient
 import space.httpjames.kagiassistantmaterial.AssistantThreadMessage
+import space.httpjames.kagiassistantmaterial.AssistantThreadMessageDocument
 import space.httpjames.kagiassistantmaterial.AssistantThreadMessageRole
 import space.httpjames.kagiassistantmaterial.KagiPromptRequest
 import space.httpjames.kagiassistantmaterial.KagiPromptRequestFocus
@@ -406,12 +408,30 @@ class MessageCenterState(
                     val fileName = context.getFileName(uri) ?: "Unknown"
                     val file = uri.copyToTempFile(context, "." + fileName.substringAfterLast("."))
                     files += file
-                    thumbnails += if (uriStr.endsWith(".webp") || uriStr.endsWith(".jpg") || uriStr.endsWith(
-                            ".png"
-                        )
-                    ) {
-                        file.to84x84ThumbFile()
-                    } else null
+                    val thumbnail =
+                        if (uriStr.endsWith(".webp") || uriStr.endsWith(".jpg") || uriStr.endsWith(
+                                ".png"
+                            )
+                        ) {
+                            file.to84x84ThumbFile()
+                        } else null
+                    thumbnails += thumbnail
+
+                    // update the user message to have the document
+                    localMessages = localMessages.map {
+                        if (it.id == messageId) {
+                            it.copy(
+                                documents = it.documents + AssistantThreadMessageDocument(
+                                    id = UUID.randomUUID().toString(),
+                                    name = fileName,
+                                    mime = mimeTypes.last(),
+                                    data = if (thumbnail != null) BitmapFactory.decodeFile(thumbnail.absolutePath) else null,
+                                )
+                            )
+                        } else {
+                            it
+                        }
+                    }
                 }
 
                 attachmentUris = emptyList()
@@ -455,7 +475,6 @@ fun File.to84x84ThumbFile(): File {
     }
     return outFile
 }
-
 
 private fun Uri.copyToTempFile(context: Context, ext: String): File {
     val temp = File.createTempFile("attach_", ext, context.cacheDir)
