@@ -107,7 +107,11 @@ fun MessageCenter(
         }
         TextField(
             value = text,
-            onValueChange = { state.onTextChanged(it) },
+            onValueChange = {
+                if (it.length <= (state.getProfile()?.maxInputChars ?: 40000)) {
+                    state.onTextChanged(it)
+                }
+            },
             placeholder = { Text("Ask Assistant") },
             modifier = Modifier
                 .fillMaxWidth()
