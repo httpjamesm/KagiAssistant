@@ -54,6 +54,7 @@ fun rememberMessageCenterState(
     setText: (String) -> Unit,
     editingMessageId: String?,
     setEditingMessageId: (String?) -> Unit,
+    setCurrentThreadTitle: (String) -> Unit,
 ): MessageCenterState {
     val haptics = LocalHapticFeedback.current
     val context = LocalContext.current
@@ -65,10 +66,10 @@ fun rememberMessageCenterState(
     val currentEditingMessageId = rememberUpdatedState(editingMessageId)
     val currentSetEditingMessageId = rememberUpdatedState(setEditingMessageId)
 
-
     val currentText = rememberUpdatedState(text)
     val currentSetText = rememberUpdatedState(setText)
 
+    val currentSetThreadTitle = rememberUpdatedState(setCurrentThreadTitle)
 
     return remember(assistantClient, coroutineScope, prefs) {
         MessageCenterState(
@@ -84,6 +85,7 @@ fun rememberMessageCenterState(
             { currentSetText.value(it) },
             { currentEditingMessageId.value },
             { currentSetEditingMessageId.value(it) },
+            { currentSetThreadTitle.value(it) },
         )
     }
 }
@@ -101,6 +103,7 @@ class MessageCenterState(
     private val setText: (String) -> Unit,
     private val getEditingMessageId: () -> String?,
     private val setEditingMessageId: (String?) -> Unit,
+    private val setCurrentThreadTitle: (String) -> Unit,
 ) {
     var isSearchEnabled by mutableStateOf(false)
         private set
@@ -293,6 +296,8 @@ class MessageCenterState(
                         val json = Json.parseToJsonElement(chunk.data)
                         val id = json.jsonObject["id"]?.jsonPrimitive?.contentOrNull
                         if (id != null) setCurrentThreadId(id)
+                        val title = json.jsonObject["title"]?.jsonPrimitive?.contentOrNull
+                        if (title != null) setCurrentThreadTitle(title)
                     }
 
                     "location.json" -> {

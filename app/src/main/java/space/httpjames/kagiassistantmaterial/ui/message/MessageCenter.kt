@@ -62,8 +62,9 @@ fun MessageCenter(
     text: String,
     setText: (String) -> Unit,
     setEditingMessageId: (String?) -> Unit,
+    setCurrentThreadTitle: (String) -> Unit
 ) {
-    val state = rememberMessageCenterState(editingMessageId = editingMessageId, setEditingMessageId = setEditingMessageId, text = text, setText = setText, coroutineScope = coroutineScope, assistantClient = assistantClient, threadMessages = threadMessages, setThreadMessages = setThreadMessages, setCurrentThreadId = setCurrentThreadId)
+    val state = rememberMessageCenterState(setCurrentThreadTitle = setCurrentThreadTitle, editingMessageId = editingMessageId, setEditingMessageId = setEditingMessageId, text = text, setText = setText, coroutineScope = coroutineScope, assistantClient = assistantClient, threadMessages = threadMessages, setThreadMessages = setThreadMessages, setCurrentThreadId = setCurrentThreadId)
 
     val textFieldShape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp)
     val haptics = LocalHapticFeedback.current
