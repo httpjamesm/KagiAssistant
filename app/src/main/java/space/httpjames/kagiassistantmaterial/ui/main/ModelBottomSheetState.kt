@@ -70,10 +70,6 @@ class ModelBottomSheetState(
         recentlyUsed = Json.decodeFromString<List<String>>(recentJson ?: "[]")
     }
 
-    fun onSearchQueryChanged(query: String) {
-        searchQuery = query
-    }
-
     fun fetchProfiles() {
         coroutineScope.launch {
             val streamId = UUID.randomUUID().toString()
@@ -90,9 +86,10 @@ class ModelBottomSheetState(
                         val profilesJson = nest["profiles"]?.jsonArray ?: emptyList()
 
                         val parsedProfiles = profilesJson.map { profile ->
+                            println(profile)
                             val obj = profile.jsonObject
                             AssistantProfile(
-                                obj["model"]?.jsonPrimitive?.contentOrNull ?: "",
+                                obj["id"]?.jsonPrimitive?.contentOrNull ?: obj["model"]?.jsonPrimitive?.contentOrNull ?: "",
                                 obj["model_provider"]?.jsonPrimitive?.contentOrNull ?: "",
                                 obj["name"]?.jsonPrimitive?.contentOrNull ?: "",
                                 obj["model_input_limit"]?.jsonPrimitive?.int ?: 40000,
