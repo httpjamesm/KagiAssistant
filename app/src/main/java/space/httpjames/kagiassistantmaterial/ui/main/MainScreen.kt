@@ -1,5 +1,6 @@
 package space.httpjames.kagiassistantmaterial.ui.main
 
+import android.content.ClipData
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
@@ -14,6 +15,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalDensity
 import kotlinx.coroutines.launch
 import space.httpjames.kagiassistantmaterial.AssistantClient
@@ -33,6 +36,8 @@ fun MainScreen(
     // Track keyboard visibility
     val density = LocalDensity.current
     val imeVisible = WindowInsets.ime.getBottom(density) > 0
+
+    val clipboard = LocalClipboard.current
 
     BackHandler(enabled = drawerState.isOpen) {
         scope.launch {
@@ -75,7 +80,35 @@ fun MainScreen(
                 Header(
                     threadTitle = state.currentThreadTitle,
                     onMenuClick = { scope.launch { drawerState.open() } },
-                    onNewChatClick = { state.newChat() })
+                    onNewChatClick = { state.newChat() },
+                    onCopyClick = {
+                        scope.launch {
+                            clipboard.setClipEntry(
+                                ClipEntry(
+                                    ClipData.newPlainText(
+                                        "Thread title",
+                                        state.currentThreadTitle
+                                    )
+                                )
+                            )
+                        }
+                    },
+                    onDeleteClick = {
+                        scope.launch {
+                            assistantClient.fetchStream(
+                                streamId = "delete_thread",
+                                url = "https://kagi.com/assistant/thread_delete",
+                                body = """{"threads":[{"id":"${state.currentThreadId}","title":".", "saved": true, "shared": false, "tag_ids": []}]}""",
+                                extraHeaders = mapOf("Content-Type" to "application/json"),
+                                onChunk = { chunk ->
+                                    if (chunk.done) {
+                                        state.newChat()
+                                    }
+                                }
+                            )
+                        }
+                    },
+                )
             }
         ) { innerPadding ->
             Column(
@@ -89,7 +122,7 @@ fun MainScreen(
                         .weight(1f),
                     isLoading = state.threadMessagesLoading,
                     currentThreadId = state.currentThreadId,
-                    onEdit = { it ->
+                    onEdit = {
                         state.editMessage(it)
                     }
                 )
@@ -100,7 +133,7 @@ fun MainScreen(
                     threadMessages = state.threadMessages,
                     setThreadMessages = { state.threadMessages = it },
                     coroutineScope = state.coroutineScope,
-                    setCurrentThreadId = { it -> state._setCurrentThreadId(it) },
+                    setCurrentThreadId = { state._setCurrentThreadId(it) },
 
                     text = state.messageCenterText,
                     setText = { state._setMessageCenterText(it) },
