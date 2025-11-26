@@ -111,6 +111,10 @@ class MainState(
         }
     }
 
+    fun _setCurrentThreadTitle(title: String) {
+        currentThreadTitle = title
+    }
+
     fun onThreadSelected(threadId: String) {
         currentThreadId = threadId
         currentThreadTitle = null
