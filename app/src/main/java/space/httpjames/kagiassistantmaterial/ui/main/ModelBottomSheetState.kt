@@ -19,14 +19,8 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import space.httpjames.kagiassistantmaterial.AssistantClient
+import space.httpjames.kagiassistantmaterial.ui.message.AssistantProfile
 import java.util.UUID
-
-data class AssistantProfile(
-    val id: String,
-    val family: String,
-    val name: String,
-    val maxInputChars: Int,
-)
 
 @Composable
 fun rememberModelBottomSheetState(
@@ -90,6 +84,8 @@ class ModelBottomSheetState(
                             val obj = profile.jsonObject
                             AssistantProfile(
                                 obj["id"]?.jsonPrimitive?.contentOrNull ?: obj["model"]?.jsonPrimitive?.contentOrNull ?: "",
+                                obj["id"]?.jsonPrimitive?.contentOrNull,
+                                obj["model"]?.jsonPrimitive?.contentOrNull ?: "",
                                 obj["model_provider"]?.jsonPrimitive?.contentOrNull ?: "",
                                 obj["name"]?.jsonPrimitive?.contentOrNull ?: "",
                                 obj["model_input_limit"]?.jsonPrimitive?.int ?: 40000,
@@ -105,26 +101,26 @@ class ModelBottomSheetState(
     }
 
     fun getProfile(): AssistantProfile? {
-        val id = selectedProfileId ?: return null
+        val key = selectedProfileId ?: return null
 
-        return profiles.find { it.id == id }
+        return profiles.find { it.key == key }
     }
 
     fun getRecentlyUsedProfiles(): List<AssistantProfile> {
         if (searchQuery.isNotBlank()) {
             return emptyList()
         }
-        return recentlyUsed.mapNotNull { id -> profiles.find { it.id == id } }
+        return recentlyUsed.mapNotNull { key -> profiles.find { it.key == key } }
     }
 
     fun onProfileSelected(profile: AssistantProfile) {
-        prefs.edit().putString("profile", profile.id).apply()
-        selectedProfileId = profile.id
+        prefs.edit().putString("profile", profile.key).apply()
+        selectedProfileId = profile.key
 
         // Update recently used list
         val updatedRecentlyUsed = recentlyUsed.toMutableList()
-        updatedRecentlyUsed.remove(profile.id)
-        updatedRecentlyUsed.add(0, profile.id)
+        updatedRecentlyUsed.remove(profile.key)
+        updatedRecentlyUsed.add(0, profile.key)
         val trimmedList = updatedRecentlyUsed.take(5)
         prefs.edit().putString("recently_used_profiles", Json.encodeToString(trimmedList)).apply()
         recentlyUsed = trimmedList

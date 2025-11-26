@@ -193,6 +193,8 @@ class MessageCenterState(
                         for (profile in profiles) {
                             val obj = profile.jsonObject
                             this@MessageCenterState.profiles += AssistantProfile(
+                                obj["id"]?.jsonPrimitive?.contentOrNull ?: obj["model"]?.jsonPrimitive?.contentOrNull ?: "",
+                                obj["id"]?.jsonPrimitive?.contentOrNull,
                                 obj["model"]?.jsonPrimitive?.contentOrNull ?: "",
                                 obj["model_provider"]?.jsonPrimitive?.contentOrNull ?: "",
                                 obj["name"]?.jsonPrimitive?.contentOrNull ?: "",
@@ -222,9 +224,9 @@ class MessageCenterState(
     }
 
     fun getProfile(): AssistantProfile? {
-        val id = prefs.getString("profile", null) ?: return null
+        val key = prefs.getString("profile", null) ?: return null
 
-        return profiles.find { it.id == id }
+        return profiles.find { it.key == key }
     }
 
     fun sendMessage(threadId: String?) {
@@ -268,10 +270,10 @@ class MessageCenterState(
             val requestBody = KagiPromptRequest(
                 focus,
                 KagiPromptRequestProfile(
-                    null,
+                    getProfile()?.id,
                     isSearchEnabled,
                     null,
-                    getProfile()?.id ?: "",
+                    getProfile()?.model ?: "",
                     false,
                 ),
                 if (!getEditingMessageId().isNullOrBlank()) null else listOf(KagiPromptRequestThreads(listOf(), true, false))
