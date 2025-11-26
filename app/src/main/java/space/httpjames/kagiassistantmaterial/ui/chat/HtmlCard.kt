@@ -239,7 +239,7 @@ private fun wrapHtmlWithStyles(html: String, cssScheme: String): String {
                     color: #666;
                 }
                 code {
-                    background: #F5F5F5;
+                    background: var(--modal-divider-color);
                     padding: 2px 6px;
                     border-radius: 4px;
                     font-family: "Courier New", monospace;
