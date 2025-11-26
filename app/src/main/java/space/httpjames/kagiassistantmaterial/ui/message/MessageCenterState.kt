@@ -27,7 +27,6 @@ import kotlinx.serialization.json.jsonPrimitive
 import space.httpjames.kagiassistantmaterial.AssistantClient
 import space.httpjames.kagiassistantmaterial.AssistantThreadMessage
 import space.httpjames.kagiassistantmaterial.AssistantThreadMessageRole
-import space.httpjames.kagiassistantmaterial.Citation
 import space.httpjames.kagiassistantmaterial.KagiPromptRequest
 import space.httpjames.kagiassistantmaterial.KagiPromptRequestFocus
 import space.httpjames.kagiassistantmaterial.KagiPromptRequestProfile
@@ -42,6 +41,7 @@ import android.util.Size
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.FileOutputStream
+import androidx.core.net.toUri
 
 @Composable
 fun rememberMessageCenterState(
@@ -385,12 +385,12 @@ class MessageCenterState(
                 val mimeTypes = mutableListOf<String>()
 
                 for (uriStr in attachmentUris) {
-                    val uri = Uri.parse(uriStr)
+                    val uri = uriStr.toUri()
                     mimeTypes += context.contentResolver.getType(uri) ?: "application/octet-stream"
                     val fileName = context.getFileName(uri) ?: "Unknown"
                     val file = uri.copyToTempFile(context, "." + fileName.substringAfterLast("."))
                     files += file
-                    thumbnails += if (uriStr.endsWith(".webp") || uriStr.endsWith(".jpg")) {
+                    thumbnails += if (uriStr.endsWith(".webp") || uriStr.endsWith(".jpg") || uriStr.endsWith(".png")) {
                         file.to84x84ThumbFile()
                     } else null
                 }
