@@ -52,7 +52,7 @@ fun ThreadsDrawerSheet(
         }.filterValues { it.isNotEmpty() }
     }
 
-    ModalDrawerSheet(modifier = modifier, ) {
+    ModalDrawerSheet(modifier = modifier) {
         SearchBar(
             modifier = Modifier
                 .fillMaxWidth()

@@ -2,8 +2,8 @@ package space.httpjames.kagiassistantmaterial.ui.chat
 
 import android.content.res.Configuration
 import android.view.View
-import android.webkit.WebView
 import android.webkit.WebSettings
+import android.webkit.WebView
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -11,9 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -42,7 +40,9 @@ fun HtmlCard(
     val context = LocalContext.current
 
     Card(
-        modifier = modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(start = 12.dp, end = 12.dp),
         colors = CardDefaults.cardColors(
             containerColor = androidx.compose.ui.graphics.Color.Transparent,
             contentColor = Color.Transparent
@@ -68,7 +68,7 @@ fun HtmlCard(
 
                         addJavascriptInterface(
                             HtmlViewerJavaScriptInterface(
-                                expectedMin =  minHeight,
+                                expectedMin = minHeight,
                                 onHeightMeasured = { h ->
                                     heightState = h
                                     isLoading = false

@@ -49,15 +49,20 @@ fun ChatArea(
     var measurementComplete by remember { mutableStateOf(false) }
     var previousThreadId by remember { mutableStateOf<String?>(null) }
 
-    Crossfade(targetState = threadMessages.isEmpty(), modifier = modifier, animationSpec = tween(durationMillis = 1200), label = "ChatAreaCrossfade") {
+    Crossfade(
+        targetState = threadMessages.isEmpty(),
+        modifier = modifier,
+        animationSpec = tween(durationMillis = 1200),
+        label = "ChatAreaCrossfade"
+    ) {
         if (isLoading) {
-          Column(
-              modifier = Modifier.fillMaxSize(),
-              verticalArrangement = Arrangement.Center,
-              horizontalAlignment = Alignment.CenterHorizontally,
-          ) {
-              CircularProgressIndicator()
-          }
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                CircularProgressIndicator()
+            }
         } else if (!it) {
             Column(
                 modifier = Modifier

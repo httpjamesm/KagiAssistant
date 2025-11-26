@@ -21,7 +21,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -38,12 +37,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.AbstractCoroutine
 import kotlinx.coroutines.CoroutineScope
 import space.httpjames.kagiassistantmaterial.AssistantClient
 import space.httpjames.kagiassistantmaterial.AssistantThreadMessage
@@ -64,7 +61,18 @@ fun MessageCenter(
     setEditingMessageId: (String?) -> Unit,
     setCurrentThreadTitle: (String) -> Unit
 ) {
-    val state = rememberMessageCenterState(setCurrentThreadTitle = setCurrentThreadTitle, editingMessageId = editingMessageId, setEditingMessageId = setEditingMessageId, text = text, setText = setText, coroutineScope = coroutineScope, assistantClient = assistantClient, threadMessages = threadMessages, setThreadMessages = setThreadMessages, setCurrentThreadId = setCurrentThreadId)
+    val state = rememberMessageCenterState(
+        setCurrentThreadTitle = setCurrentThreadTitle,
+        editingMessageId = editingMessageId,
+        setEditingMessageId = setEditingMessageId,
+        text = text,
+        setText = setText,
+        coroutineScope = coroutineScope,
+        assistantClient = assistantClient,
+        threadMessages = threadMessages,
+        setThreadMessages = setThreadMessages,
+        setCurrentThreadId = setCurrentThreadId
+    )
 
     val textFieldShape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp)
     val haptics = LocalHapticFeedback.current
@@ -96,12 +104,16 @@ fun MessageCenter(
     ) {
         if (state.attachmentUris.isNotEmpty()) {
             Row(
-                modifier = Modifier.padding(8.dp).horizontalScroll(attachmentPreviewsScrollState),
+                modifier = Modifier
+                    .padding(8.dp)
+                    .horizontalScroll(attachmentPreviewsScrollState),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 state.attachmentUris.forEach { uri ->
                     key(uri) {
-                        AttachmentPreview(uri = uri, onRemove = { uri -> state.removeAttachmentUri(uri) })
+                        AttachmentPreview(
+                            uri = uri,
+                            onRemove = { uri -> state.removeAttachmentUri(uri) })
                     }
                 }
             }
@@ -188,10 +200,11 @@ fun MessageCenter(
                             state.openModelBottomSheet()
                             haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         },
-                        contentPadding = PaddingValues(horizontal = 16.dp,) // ← less padding
+                        contentPadding = PaddingValues(horizontal = 16.dp) // ← less padding
                     ) {
                         Text(
-                            text = state.getProfile()?.name?.replace("(preview)", "") ?: "Select a model",
+                            text = state.getProfile()?.name?.replace("(preview)", "")
+                                ?: "Select a model",
                         )
                     }
                 }
@@ -218,6 +231,8 @@ fun MessageCenter(
     }
 
     if (state.showAttachmentBottomSheet) {
-        AttachmentBottomSheet(onDismissRequest = { state.onDismissAttachmentBottomSheet() }, onAttachment = { state.addAttachmentUri(it) })
+        AttachmentBottomSheet(
+            onDismissRequest = { state.onDismissAttachmentBottomSheet() },
+            onAttachment = { state.addAttachmentUri(it) })
     }
 }

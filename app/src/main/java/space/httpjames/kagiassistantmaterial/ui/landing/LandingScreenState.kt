@@ -18,7 +18,7 @@ fun rememberLandingScreenState(
     assistantClient: AssistantClient = AssistantClient("null"),
 ): LandingScreenState {
     val prefs = LocalContext.current.getSharedPreferences("assistant_prefs", Context.MODE_PRIVATE)
-    return remember( prefs, assistantClient) {
+    return remember(prefs, assistantClient) {
         LandingScreenState(prefs, assistantClient)
     }
 }

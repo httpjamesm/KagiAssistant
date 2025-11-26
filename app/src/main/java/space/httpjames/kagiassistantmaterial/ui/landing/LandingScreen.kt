@@ -89,7 +89,7 @@ fun LandingScreen(onLoginSuccess: (String) -> Unit = {}) {
 
             BouncingBall()
 
-            Column (
+            Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.padding(bottom = 30.dp, start = 24.dp, end = 24.dp)
             ) {
@@ -120,7 +120,11 @@ fun LandingScreen(onLoginSuccess: (String) -> Unit = {}) {
                     }
                 }
                 Spacer(modifier = Modifier.height(12.dp))
-                Text("We'll sync all of your chats to this device", style = MaterialTheme.typography.labelMedium, color = Color.Gray.copy(alpha = 0.8f))
+                Text(
+                    "We'll sync all of your chats to this device",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Color.Gray.copy(alpha = 0.8f)
+                )
             }
         }
     }
@@ -233,6 +237,7 @@ private fun triggerFlightHaptic(vibe: Vibrator, velocity: Float) {
             vibe.vibrate(effect)
         }
         // Older devices - skip subtle flight haptics (too coarse)
-        else -> { /* No-op for pre-Oreo */ }
+        else -> { /* No-op for pre-Oreo */
+        }
     }
 }

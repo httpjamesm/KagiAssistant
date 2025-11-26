@@ -1,36 +1,33 @@
 package space.httpjames.kagiassistantmaterial
 
 import android.graphics.Bitmap
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.CoroutineScope
+import com.squareup.moshi.JsonClass
+import com.squareup.moshi.Moshi
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.isActive
-import okhttp3.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
+import okhttp3.Call
+import okhttp3.Callback
+import okhttp3.Headers
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
-import okhttp3.MultipartBody.Part
+import okhttp3.MultipartBody
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
 import okio.BufferedSource
-import okio.ByteString
 import okio.IOException
 import org.jsoup.Jsoup
 import java.io.File
 import java.util.concurrent.TimeUnit
+import kotlin.coroutines.coroutineContext
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
-import com.squareup.moshi.JsonClass
-import com.squareup.moshi.Moshi
-import com.squareup.moshi.Types
-import kotlinx.coroutines.CoroutineDispatcher
-import okio.Buffer
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.Json
-import okhttp3.MediaType.Companion.toMediaType
-import kotlin.coroutines.coroutineContext
 
 data class AssistantThread(
     val id: String,
@@ -43,7 +40,7 @@ enum class AssistantThreadMessageRole {
     USER,
 }
 
-data class Citation (
+data class Citation(
     val url: String,
     val title: String,
 )
@@ -107,7 +104,10 @@ data class QrRemoteSessionDetails(
     val token: String,
 )
 
-class AssistantClient(private val sessionToken: String, private val ignoredChunks: Set<String> = setOf("thread_list.html:")) {
+class AssistantClient(
+    private val sessionToken: String,
+    private val ignoredChunks: Set<String> = setOf("thread_list.html:")
+) {
     private val baseHeaders = Headers.Builder()
         .add("origin", "https://kagi.com")
         .add("referer", "https://kagi.com/assistant")
@@ -349,7 +349,7 @@ class AssistantClient(private val sessionToken: String, private val ignoredChunk
         try {
             while (true) {
                 // read the next line in the buffered source
-                val line = source.readUtf8Line()?.replace("\u0000", "")?: break
+                val line = source.readUtf8Line()?.replace("\u0000", "") ?: break
 
                 val isPossibleChunkHeader = line.contains(":")
                 if (isPossibleChunkHeader) {
@@ -367,12 +367,14 @@ class AssistantClient(private val sessionToken: String, private val ignoredChunk
                     if (isWantedHeader) {
                         val body = line.split(":", limit = 2)[1]
 
-                        onChunk(StreamChunk(
-                            streamId,
-                            chunkHeader,
-                            body,
-                            false
-                        ))
+                        onChunk(
+                            StreamChunk(
+                                streamId,
+                                chunkHeader,
+                                body,
+                                false
+                            )
+                        )
                     }
                 }
             }

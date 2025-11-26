@@ -23,8 +23,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -44,9 +42,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -115,7 +111,9 @@ fun ChatMessage(
                     if (isMe) {
                         Text(
                             text = content,
-                            modifier = Modifier.padding(12.dp).widthIn(max = this@BoxWithConstraints.maxWidth * 0.7f),
+                            modifier = Modifier
+                                .padding(12.dp)
+                                .widthIn(max = this@BoxWithConstraints.maxWidth * 0.7f),
                             style = MaterialTheme.typography.bodyMedium
                         )
                     } else {
@@ -124,7 +122,9 @@ fun ChatMessage(
                                 painter = painterResource(R.drawable.fetch_ball_icon),
                                 contentDescription = "",
                                 tint = Color.Unspecified,
-                                modifier = Modifier.padding(12.dp).size(32.dp),
+                                modifier = Modifier
+                                    .padding(12.dp)
+                                    .size(32.dp),
                             )
 
                             if (content.isEmpty()) {
@@ -160,7 +160,11 @@ fun ChatMessage(
                                     )
                                 }
                             } else {
-                                HtmlCard(html = HtmlPreprocessor.preprocess(content), key = id, onHeightMeasured = onHeightMeasured)
+                                HtmlCard(
+                                    html = HtmlPreprocessor.preprocess(content),
+                                    key = id,
+                                    onHeightMeasured = onHeightMeasured
+                                )
                             }
 
                             if (citations.isNotEmpty()) {
@@ -183,21 +187,34 @@ fun ChatMessage(
                     onEdit = onEdit,
                     onCopy = {
                         coroutineScope.launch {
-                            clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("message", content)))
+                            clipboard.setClipEntry(
+                                ClipEntry(
+                                    ClipData.newPlainText(
+                                        "message",
+                                        content
+                                    )
+                                )
+                            )
                         }
                     }
                 )
             }
 
             if (documents.isNotEmpty()) {
-                Row(modifier = Modifier.padding(start = 12.dp, top = 12.dp).fillMaxWidth().horizontalScroll(documentsScroll), horizontalArrangement = spacedBy(8.dp),) {
+                Row(
+                    modifier = Modifier
+                        .padding(start = 12.dp, top = 12.dp)
+                        .fillMaxWidth()
+                        .horizontalScroll(documentsScroll), horizontalArrangement = spacedBy(8.dp),
+                ) {
                     Spacer(modifier = Modifier.weight(1f))
                     key(documents) {
                         documents.forEach { document ->
                             if (document.data != null) {
                                 Surface(
                                     modifier = Modifier
-                                        .size(84.dp).background(
+                                        .size(84.dp)
+                                        .background(
                                             shape = RoundedCornerShape(8.dp),
                                             color = MaterialTheme.colorScheme.background
                                         )
@@ -209,15 +226,22 @@ fun ChatMessage(
                                     )
                                 }
                             } else {
-                                Box(modifier = Modifier.width(200.dp).height(84.dp).background(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = MaterialTheme.colorScheme.surfaceVariant
-                                )) {
+                                Box(
+                                    modifier = Modifier
+                                        .width(200.dp)
+                                        .height(84.dp)
+                                        .background(
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = MaterialTheme.colorScheme.surfaceVariant
+                                        )
+                                ) {
                                     Column(
                                         verticalArrangement = Arrangement.Center,
                                         modifier = Modifier.fillMaxSize()
                                     ) {
-                                        Column(modifier = Modifier.fillMaxSize().padding(8.dp)) {
+                                        Column(modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(8.dp)) {
                                             Text(
                                                 text = document.name,
                                                 fontWeight = FontWeight.Bold,

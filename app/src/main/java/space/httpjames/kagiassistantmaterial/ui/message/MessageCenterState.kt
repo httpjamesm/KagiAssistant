@@ -3,7 +3,10 @@ package space.httpjames.kagiassistantmaterial.ui.message
 import android.content.Context
 import android.content.SharedPreferences
 import android.graphics.Bitmap
+import android.media.ThumbnailUtils
 import android.net.Uri
+import android.provider.OpenableColumns
+import android.util.Size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -15,9 +18,12 @@ import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.core.net.toUri
 import com.squareup.moshi.Moshi
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.int
@@ -34,14 +40,8 @@ import space.httpjames.kagiassistantmaterial.KagiPromptRequestThreads
 import space.httpjames.kagiassistantmaterial.StreamChunk
 import space.httpjames.kagiassistantmaterial.ui.main.parseReferencesHtml
 import java.io.File
-import java.util.UUID
-import android.media.ThumbnailUtils
-import android.provider.OpenableColumns
-import android.util.Size
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import java.io.FileOutputStream
-import androidx.core.net.toUri
+import java.util.UUID
 
 @Composable
 fun rememberMessageCenterState(
@@ -193,7 +193,8 @@ class MessageCenterState(
                         for (profile in profiles) {
                             val obj = profile.jsonObject
                             this@MessageCenterState.profiles += AssistantProfile(
-                                obj["id"]?.jsonPrimitive?.contentOrNull ?: obj["model"]?.jsonPrimitive?.contentOrNull ?: "",
+                                obj["id"]?.jsonPrimitive?.contentOrNull
+                                    ?: obj["model"]?.jsonPrimitive?.contentOrNull ?: "",
                                 obj["id"]?.jsonPrimitive?.contentOrNull,
                                 obj["model"]?.jsonPrimitive?.contentOrNull ?: "",
                                 obj["model_provider"]?.jsonPrimitive?.contentOrNull ?: "",
@@ -276,10 +277,13 @@ class MessageCenterState(
                     getProfile()?.model ?: "",
                     false,
                 ),
-                if (!getEditingMessageId().isNullOrBlank()) null else listOf(KagiPromptRequestThreads(listOf(), true, false))
+                if (!getEditingMessageId().isNullOrBlank()) null else listOf(
+                    KagiPromptRequestThreads(listOf(), true, false)
+                )
             )
 
-            val url = if (!getEditingMessageId().isNullOrBlank()) "https://kagi.com/assistant/message_regenerate" else "https://kagi.com/assistant/prompt"
+            val url =
+                if (!getEditingMessageId().isNullOrBlank()) "https://kagi.com/assistant/message_regenerate" else "https://kagi.com/assistant/prompt"
 
             setEditingMessageId(null)
 
@@ -322,7 +326,8 @@ class MessageCenterState(
                         val obj = json.jsonObject
                         val newText = obj["reply"]?.jsonPrimitive?.contentOrNull ?: ""
                         val id = obj["id"]?.jsonPrimitive?.contentOrNull ?: ""
-                        val citationsHtml = obj["references_html"]?.jsonPrimitive?.contentOrNull ?: ""
+                        val citationsHtml =
+                            obj["references_html"]?.jsonPrimitive?.contentOrNull ?: ""
 
                         inProgressAssistantMessageId = id
                         messageId = id
@@ -335,7 +340,10 @@ class MessageCenterState(
                         val exists = localMessages.any { it.id == id }
                         localMessages = if (exists) {
                             localMessages.map {
-                                if (it.id == id) it.copy(content = newText, citations = preparedCitations)
+                                if (it.id == id) it.copy(
+                                    content = newText,
+                                    citations = preparedCitations
+                                )
                                 else it
                             }
                         } else {
@@ -346,7 +354,8 @@ class MessageCenterState(
                                 content = newText,
                                 role = AssistantThreadMessageRole.ASSISTANT,
                                 citations = preparedCitations,
-                                branchIds = localMessages.takeLast(1).firstOrNull()?.branchIds ?: emptyList(),
+                                branchIds = localMessages.takeLast(1).firstOrNull()?.branchIds
+                                    ?: emptyList(),
                             )
                         }
 
@@ -397,7 +406,10 @@ class MessageCenterState(
                     val fileName = context.getFileName(uri) ?: "Unknown"
                     val file = uri.copyToTempFile(context, "." + fileName.substringAfterLast("."))
                     files += file
-                    thumbnails += if (uriStr.endsWith(".webp") || uriStr.endsWith(".jpg") || uriStr.endsWith(".png")) {
+                    thumbnails += if (uriStr.endsWith(".webp") || uriStr.endsWith(".jpg") || uriStr.endsWith(
+                            ".png"
+                        )
+                    ) {
                         file.to84x84ThumbFile()
                     } else null
                 }

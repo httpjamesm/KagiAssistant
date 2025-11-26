@@ -11,21 +11,19 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import space.httpjames.kagiassistantmaterial.AssistantClient
-import space.httpjames.kagiassistantmaterial.AssistantThread
-import space.httpjames.kagiassistantmaterial.AssistantThreadMessage
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.jsoup.Jsoup
+import space.httpjames.kagiassistantmaterial.AssistantClient
+import space.httpjames.kagiassistantmaterial.AssistantThread
+import space.httpjames.kagiassistantmaterial.AssistantThreadMessage
 import space.httpjames.kagiassistantmaterial.AssistantThreadMessageDocument
 import space.httpjames.kagiassistantmaterial.AssistantThreadMessageRole
 import space.httpjames.kagiassistantmaterial.Citation
@@ -141,7 +139,8 @@ class MainState(
                             for (message in messages.jsonArray) {
                                 println(message)
                                 val obj = message.jsonObject
-                                val parsedDocuments = mutableListOf<AssistantThreadMessageDocument>()
+                                val parsedDocuments =
+                                    mutableListOf<AssistantThreadMessageDocument>()
 
                                 val documents = obj["documents"]?.jsonArray ?: emptyList()
 
@@ -164,7 +163,8 @@ class MainState(
                                 }
 
                                 val branchList = obj["branch_list"]?.jsonArray
-                                val branchListStrings = branchList?.map { it.jsonPrimitive.content } ?: emptyList()
+                                val branchListStrings =
+                                    branchList?.map { it.jsonPrimitive.content } ?: emptyList()
 
                                 threadMessages += AssistantThreadMessage(
                                     obj["id"]?.jsonPrimitive?.contentOrNull ?: "",
@@ -174,7 +174,9 @@ class MainState(
                                     parsedDocuments,
                                     branchListStrings,
                                 )
-                                val citations = parseReferencesHtml(obj["references_html"]?.jsonPrimitive?.contentOrNull ?: "")
+                                val citations = parseReferencesHtml(
+                                    obj["references_html"]?.jsonPrimitive?.contentOrNull ?: ""
+                                )
                                 println(citations)
                                 threadMessages += AssistantThreadMessage(
                                     (obj["id"]?.jsonPrimitive?.contentOrNull ?: "") + ".reply",
@@ -214,7 +216,6 @@ fun parseReferencesHtml(html: String): List<Citation> =
     Jsoup.parse(html)
         .select("ol[data-ref-list] > li > a[href]")
         .map { a -> Citation(url = a.attr("abs:href"), title = a.text()) }
-
 
 
 @OptIn(ExperimentalEncodingApi::class)

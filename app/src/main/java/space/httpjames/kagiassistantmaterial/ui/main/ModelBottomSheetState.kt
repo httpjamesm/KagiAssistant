@@ -83,7 +83,8 @@ class ModelBottomSheetState(
                             println(profile)
                             val obj = profile.jsonObject
                             AssistantProfile(
-                                obj["id"]?.jsonPrimitive?.contentOrNull ?: obj["model"]?.jsonPrimitive?.contentOrNull ?: "",
+                                obj["id"]?.jsonPrimitive?.contentOrNull
+                                    ?: obj["model"]?.jsonPrimitive?.contentOrNull ?: "",
                                 obj["id"]?.jsonPrimitive?.contentOrNull,
                                 obj["model"]?.jsonPrimitive?.contentOrNull ?: "",
                                 obj["model_provider"]?.jsonPrimitive?.contentOrNull ?: "",
@@ -92,7 +93,12 @@ class ModelBottomSheetState(
                             )
                         }
 
-                        val (kagiProfiles, otherProfiles) = parsedProfiles.partition { it.family.equals("kagi", ignoreCase = true) }
+                        val (kagiProfiles, otherProfiles) = parsedProfiles.partition {
+                            it.family.equals(
+                                "kagi",
+                                ignoreCase = true
+                            )
+                        }
                         this@ModelBottomSheetState.profiles = kagiProfiles + otherProfiles
                     }
                 }

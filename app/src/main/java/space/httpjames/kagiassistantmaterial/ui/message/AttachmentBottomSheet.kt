@@ -1,11 +1,7 @@
 package space.httpjames.kagiassistantmaterial.ui.message
 
-import android.app.Activity
 import android.content.Context
-import android.content.Intent
-import android.graphics.Bitmap
 import android.net.Uri
-import android.provider.MediaStore
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -24,14 +20,11 @@ import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,8 +48,10 @@ fun AttachmentBottomSheet(
         sheetState = sheetState,
     ) {
         Row(
-           verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp).fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .padding(horizontal = 24.dp, vertical = 12.dp)
+                .fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             AttachCameraButton(
@@ -85,12 +80,13 @@ fun AttachCameraButton(
     val context = LocalContext.current
     val photoUri = remember { createTempImageUri(context) }
 
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
-        if (success) {
+    val launcher =
+        rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+            if (success) {
 //            capturedBitmap.value = MediaStore.Images.Media.getBitmap(context.contentResolver, photoUri)
-            onSnap(photoUri.toString())
+                onSnap(photoUri.toString())
+            }
         }
-    }
 
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
