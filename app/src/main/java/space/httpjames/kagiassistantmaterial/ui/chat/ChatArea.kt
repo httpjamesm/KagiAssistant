@@ -60,12 +60,10 @@ fun ChatArea(
     val coroutineScope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
     var showButton by remember { mutableStateOf(false) }
-    LaunchedEffect(scrollState.isScrollInProgress, scrollState.value) {
-        if (!scrollState.isScrollInProgress) {
-            showButton = scrollState.value < scrollState.maxValue
-        } else {
-            showButton = false
-        }
+    LaunchedEffect(scrollState.isScrollInProgress, scrollState.value, scrollState.maxValue) {
+        showButton = !scrollState.isScrollInProgress &&
+                scrollState.maxValue > 0 &&
+                scrollState.value < scrollState.maxValue
     }
 
     Crossfade(
