@@ -3,14 +3,20 @@ package space.httpjames.kagiassistantmaterial.ui.chat
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,14 +26,18 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.android.awaitFrame
+import kotlinx.coroutines.launch
 import space.httpjames.kagiassistantmaterial.AssistantClient
 import space.httpjames.kagiassistantmaterial.AssistantThreadMessage
 import space.httpjames.kagiassistantmaterial.AssistantThreadMessageRole
@@ -47,6 +57,16 @@ fun ChatArea(
     var pendingMeasurements by remember { mutableIntStateOf(0) }
     var measurementComplete by remember { mutableStateOf(false) }
     var previousThreadId by remember { mutableStateOf<String?>(null) }
+    val coroutineScope = rememberCoroutineScope()
+    val haptics = LocalHapticFeedback.current
+    var showButton by remember { mutableStateOf(false) }
+    LaunchedEffect(scrollState.isScrollInProgress, scrollState.value) {
+        if (!scrollState.isScrollInProgress) {
+            showButton = scrollState.value < scrollState.maxValue
+        } else {
+            showButton = false
+        }
+    }
 
     Crossfade(
         targetState = threadMessages.isEmpty(),
@@ -63,32 +83,71 @@ fun ChatArea(
                 CircularProgressIndicator()
             }
         } else if (!it) {
-            Column(
-                modifier = Modifier
-                    .verticalScroll(scrollState)
-                    .fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+            Box(
+                modifier = Modifier.fillMaxSize(),
             ) {
-                threadMessages.forEach { threadMessage ->
-                    key(threadMessage.id) {
-                        ChatMessage(
-                            id = threadMessage.id,
-                            content = threadMessage.content,
-                            role = threadMessage.role,
-                            citations = threadMessage.citations,
-                            documents = threadMessage.documents,
-                            onEdit = {
-                                onEdit(threadMessage.id)
-                            },
-                            onHeightMeasured = {
-                                pendingMeasurements--
-                                println("pendingMeasurements $pendingMeasurements")
-                                if (pendingMeasurements <= 0) {
-                                    measurementComplete = true
+                Column(
+                    modifier = Modifier
+                        .verticalScroll(scrollState)
+                        .fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    threadMessages.forEach { threadMessage ->
+                        key(threadMessage.id) {
+                            ChatMessage(
+                                id = threadMessage.id,
+                                content = threadMessage.content,
+                                role = threadMessage.role,
+                                citations = threadMessage.citations,
+                                documents = threadMessage.documents,
+                                onEdit = {
+                                    onEdit(threadMessage.id)
+                                },
+                                onHeightMeasured = {
+                                    pendingMeasurements--
+                                    println("pendingMeasurements $pendingMeasurements")
+                                    if (pendingMeasurements <= 0) {
+                                        measurementComplete = true
+                                    }
                                 }
-                            }
 
-                        )
+                            )
+                        }
+                    }
+                }
+
+                Crossfade(
+                    targetState = showButton,
+                    animationSpec = tween(durationMillis = 1200),
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(12.dp),
+                ) { show ->
+                    if (show) {
+                        Row(
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            FilledIconButton(
+                                onClick = {
+                                    coroutineScope.launch {
+                                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        scrollState.scrollTo(scrollState.maxValue)
+                                        showButton = false
+                                    }
+                                },
+                                colors = IconButtonDefaults.filledIconButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.inverseOnSurface
+                                ),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.ArrowDownward,
+                                    contentDescription = "Scroll down",
+                                    modifier = Modifier
+                                        .padding(12.dp)
+                                        .size(36.dp),
+                                )
+                            }
+                        }
                     }
                 }
             }
