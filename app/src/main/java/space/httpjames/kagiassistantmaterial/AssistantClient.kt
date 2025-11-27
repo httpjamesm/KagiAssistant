@@ -53,6 +53,9 @@ data class AssistantThreadMessage(
     val citations: List<Citation> = emptyList(),
     val documents: List<AssistantThreadMessageDocument> = emptyList(),
     val branchIds: List<String> = listOf("00000000-0000-4000-0000-000000000000"),
+    val finishedGenerating: Boolean = false,
+    val markdownContent: String? = null,
+    val metadata: Map<String, String> = emptyMap(),
 )
 
 data class AssistantThreadMessageDocument(
@@ -402,5 +405,14 @@ class AssistantClient(
     companion object {
         private fun extractToken(raw: String): String =
             raw.substringAfter("token=", raw).substringBefore("&")
+    }
+}
+
+fun parseMetadata(html: String): Map<String, String> {
+    val doc = Jsoup.parse(html)
+    return doc.select("li").associate { li ->
+        val key = li.selectFirst("span.attribute")?.text() ?: ""
+        val value = li.selectFirst("span.value")?.text() ?: ""
+        key to value
     }
 }

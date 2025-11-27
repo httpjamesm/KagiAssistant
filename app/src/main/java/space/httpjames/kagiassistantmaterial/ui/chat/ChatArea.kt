@@ -105,12 +105,13 @@ fun ChatArea(
                                 },
                                 onHeightMeasured = {
                                     pendingMeasurements--
-                                    println("pendingMeasurements $pendingMeasurements")
                                     if (pendingMeasurements <= 0) {
                                         measurementComplete = true
                                     }
-                                }
-
+                                },
+                                finishedGenerating = threadMessage.finishedGenerating,
+                                markdownContent = threadMessage.markdownContent,
+                                metadata = threadMessage.metadata,
                             )
                         }
                     }

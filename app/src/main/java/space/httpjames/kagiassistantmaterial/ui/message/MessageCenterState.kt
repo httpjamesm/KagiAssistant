@@ -40,6 +40,7 @@ import space.httpjames.kagiassistantmaterial.KagiPromptRequestFocus
 import space.httpjames.kagiassistantmaterial.KagiPromptRequestProfile
 import space.httpjames.kagiassistantmaterial.KagiPromptRequestThreads
 import space.httpjames.kagiassistantmaterial.StreamChunk
+import space.httpjames.kagiassistantmaterial.parseMetadata
 import space.httpjames.kagiassistantmaterial.ui.main.parseReferencesHtml
 import java.io.File
 import java.io.FileOutputStream
@@ -295,6 +296,16 @@ class MessageCenterState(
 //            println("json string: $jsonString")
 
             fun onChunk(chunk: StreamChunk) {
+                if (chunk.done) {
+                    // set finishedGenerating to true
+                    localMessages = localMessages.map {
+                        if (it.id == inProgressAssistantMessageId) {
+                            it.copy(finishedGenerating = true)
+                        } else {
+                            it
+                        }
+                    }
+                }
                 when (chunk.header) {
                     "thread.json" -> {
                         val json = Json.parseToJsonElement(chunk.data)
@@ -323,6 +334,8 @@ class MessageCenterState(
                         val json = Json.parseToJsonElement(chunk.data)
                         val obj = json.jsonObject
                         val newText = obj["reply"]?.jsonPrimitive?.contentOrNull ?: ""
+                        val md = obj["md"]?.jsonPrimitive?.contentOrNull ?: ""
+                        val metadata = obj["metadata"]?.jsonPrimitive?.contentOrNull ?: ""
                         val id = obj["id"]?.jsonPrimitive?.contentOrNull ?: ""
                         val citationsHtml =
                             obj["references_html"]?.jsonPrimitive?.contentOrNull ?: ""
@@ -345,7 +358,9 @@ class MessageCenterState(
                             localMessages.map {
                                 if (it.id == inProgressAssistantMessageId) it.copy(
                                     content = newText,
-                                    citations = preparedCitations
+                                    citations = preparedCitations,
+                                    markdownContent = md,
+                                    metadata = parseMetadata(metadata)
                                 )
                                 else it
                             }
@@ -359,6 +374,8 @@ class MessageCenterState(
                                 citations = preparedCitations,
                                 branchIds = localMessages.takeLast(1).firstOrNull()?.branchIds
                                     ?: emptyList(),
+                                markdownContent = md,
+                                metadata = parseMetadata(metadata),
                             )
                         }
 

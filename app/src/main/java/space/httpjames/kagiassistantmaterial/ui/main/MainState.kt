@@ -27,6 +27,7 @@ import space.httpjames.kagiassistantmaterial.AssistantThreadMessage
 import space.httpjames.kagiassistantmaterial.AssistantThreadMessageDocument
 import space.httpjames.kagiassistantmaterial.AssistantThreadMessageRole
 import space.httpjames.kagiassistantmaterial.Citation
+import space.httpjames.kagiassistantmaterial.parseMetadata
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 
@@ -137,7 +138,6 @@ class MainState(
                             threadMessages = emptyList()
 
                             for (message in messages.jsonArray) {
-                                println(message)
                                 val obj = message.jsonObject
                                 val parsedDocuments =
                                     mutableListOf<AssistantThreadMessageDocument>()
@@ -166,6 +166,10 @@ class MainState(
                                 val branchListStrings =
                                     branchList?.map { it.jsonPrimitive.content } ?: emptyList()
 
+                                val md = obj["md"]?.jsonPrimitive?.contentOrNull
+                                val metadata = obj["metadata"]?.jsonPrimitive?.contentOrNull ?: ""
+
+
                                 threadMessages += AssistantThreadMessage(
                                     obj["id"]?.jsonPrimitive?.contentOrNull ?: "",
                                     obj["prompt"]?.jsonPrimitive?.contentOrNull ?: "",
@@ -173,6 +177,9 @@ class MainState(
                                     emptyList(),
                                     parsedDocuments,
                                     branchListStrings,
+                                    true,
+                                    null,
+                                    emptyMap(),
                                 )
                                 val citations = parseReferencesHtml(
                                     obj["references_html"]?.jsonPrimitive?.contentOrNull ?: ""
@@ -185,6 +192,9 @@ class MainState(
                                     citations,
                                     emptyList(),
                                     branchListStrings,
+                                    true,
+                                    md,
+                                    parseMetadata(metadata)
                                 )
                             }
 

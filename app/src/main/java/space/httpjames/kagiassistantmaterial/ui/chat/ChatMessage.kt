@@ -23,7 +23,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -68,6 +73,9 @@ fun ChatMessage(
     documents: List<AssistantThreadMessageDocument> = emptyList(),
     onEdit: () -> Unit,
     onHeightMeasured: (() -> Unit)? = null,
+    finishedGenerating: Boolean = true,
+    markdownContent: String?,
+    metadata: Map<String, String> = emptyMap(),
 ) {
     val isMe = role == AssistantThreadMessageRole.USER
     val background = if (isMe) MaterialTheme.colorScheme.primary
@@ -79,6 +87,8 @@ fun ChatMessage(
 
     var showSourcesSheet by remember { mutableStateOf(false) }
     var menuExpanded by remember { mutableStateOf(false) }
+    var showMetadataModal by remember { mutableStateOf(false) }
+
 
     val documentsScroll = rememberScrollState()
 
@@ -164,16 +174,61 @@ fun ChatMessage(
                                     html = HtmlPreprocessor.preprocess(content),
                                     onHeightMeasured = onHeightMeasured
                                 )
-                            }
 
-                            if (citations.isNotEmpty()) {
-                                SourcesButton(
-                                    domains = citations.take(3).map { URI(it.url).host ?: "" },
-                                    text = "Sources",
-                                    onClick = {
-                                        showSourcesSheet = true
+                                if (finishedGenerating) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth(),
+                                        horizontalArrangement = if (citations.isNotEmpty()) Arrangement.SpaceBetween else Arrangement.End
+                                    ) {
+                                        if (citations.isNotEmpty()) {
+                                            SourcesButton(
+                                                domains = citations.take(3)
+                                                    .map { URI(it.url).host ?: "" },
+                                                text = "Sources",
+                                                onClick = {
+                                                    showSourcesSheet = true
+                                                }
+                                            )
+                                        }
+
+                                        IconButton(
+                                            onClick = {
+                                                coroutineScope.launch {
+                                                    clipboard.setClipEntry(
+                                                        ClipEntry(
+                                                            ClipData.newPlainText(
+                                                                "message",
+                                                                markdownContent
+                                                            )
+                                                        )
+                                                    )
+                                                }
+                                            },
+                                            colors = IconButtonDefaults.iconButtonColors(
+                                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Outlined.ContentCopy,
+                                                contentDescription = "Copy message"
+                                            )
+                                        }
+                                        IconButton(
+                                            onClick = {
+                                                showMetadataModal = true
+                                            },
+                                            colors = IconButtonDefaults.iconButtonColors(
+                                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Outlined.Info,
+                                                contentDescription = "Show message metadata"
+                                            )
+                                        }
                                     }
-                                )
+                                }
                             }
                         }
                     }
@@ -271,5 +326,12 @@ fun ChatMessage(
             showSourcesSheet = false
         })
     }
+
+    if (showMetadataModal) {
+        MetadataModal(metadata = metadata, onDismissRequest = {
+            showMetadataModal = false
+        })
+    }
+
 
 }
