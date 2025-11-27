@@ -128,9 +128,6 @@ class MessageCenterState(
     var showAttachmentSizeLimitWarning by mutableStateOf(false)
         private set
 
-    var expanded by mutableStateOf(true)
-        private set
-
     fun addAttachmentUri(uri: String) {
         val totalSize = attachmentUris.sumOf { getFileSize(Uri.parse(it)) }
         val newUriSize = getFileSize(Uri.parse(uri))
@@ -331,7 +328,12 @@ class MessageCenterState(
                         val citationsHtml =
                             obj["references_html"]?.jsonPrimitive?.contentOrNull ?: ""
 
-                        inProgressAssistantMessageId = id
+                        // update the local message (which will have the old id) with the new id
+                        localMessages = localMessages.map {
+                            if (it.id == messageId) it.copy(id = id) else it
+                        }
+
+                        inProgressAssistantMessageId = id + ".reply"
                         messageId = id
 
                         val preparedCitations = if (citationsHtml.isNotBlank()) {
@@ -339,10 +341,10 @@ class MessageCenterState(
                         } else emptyList()
 
                         // Update local accumulator
-                        val exists = localMessages.any { it.id == id }
+                        val exists = localMessages.any { it.id == inProgressAssistantMessageId }
                         localMessages = if (exists) {
                             localMessages.map {
-                                if (it.id == id) it.copy(
+                                if (it.id == inProgressAssistantMessageId) it.copy(
                                     content = newText,
                                     citations = preparedCitations
                                 )
@@ -352,7 +354,7 @@ class MessageCenterState(
                             // get the last user message and mirror the branch list
 
                             localMessages + AssistantThreadMessage(
-                                id = id,
+                                id = inProgressAssistantMessageId!!,
                                 content = newText,
                                 role = AssistantThreadMessageRole.ASSISTANT,
                                 citations = preparedCitations,
@@ -378,7 +380,7 @@ class MessageCenterState(
 
                         // Always update local accumulator immediately
                         localMessages = localMessages.map {
-                            if (it.id == incomingId) it.copy(content = newText)
+                            if (it.id == incomingId + ".reply") it.copy(content = newText)
                             else it
                         }
 
