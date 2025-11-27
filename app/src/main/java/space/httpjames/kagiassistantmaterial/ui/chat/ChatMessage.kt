@@ -162,7 +162,6 @@ fun ChatMessage(
                             } else {
                                 HtmlCard(
                                     html = HtmlPreprocessor.preprocess(content),
-                                    key = id,
                                     onHeightMeasured = onHeightMeasured
                                 )
                             }
@@ -205,7 +204,8 @@ fun ChatMessage(
                     modifier = Modifier
                         .padding(start = 12.dp, top = 12.dp)
                         .fillMaxWidth()
-                        .horizontalScroll(documentsScroll), horizontalArrangement = spacedBy(8.dp),
+                        .horizontalScroll(documentsScroll),
+                    horizontalArrangement = spacedBy(8.dp),
                 ) {
                     Spacer(modifier = Modifier.weight(1f))
                     key(documents) {
@@ -239,9 +239,11 @@ fun ChatMessage(
                                         verticalArrangement = Arrangement.Center,
                                         modifier = Modifier.fillMaxSize()
                                     ) {
-                                        Column(modifier = Modifier
-                                            .fillMaxSize()
-                                            .padding(8.dp)) {
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .padding(8.dp)
+                                        ) {
                                             Text(
                                                 text = document.name,
                                                 fontWeight = FontWeight.Bold,

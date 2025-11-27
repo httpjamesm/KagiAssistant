@@ -9,6 +9,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
@@ -16,7 +17,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -31,12 +31,10 @@ private const val MIN_WEBVIEW_HEIGHT = 0
 @Composable
 fun HtmlCard(
     html: String,
-    key: String,
     modifier: Modifier = Modifier,
     minHeight: Int = MIN_WEBVIEW_HEIGHT,
     onHeightMeasured: (() -> Unit)? = null,
 ) {
-    var isLoading by remember { mutableStateOf(true) }
     var heightState by remember { mutableIntStateOf(minHeight) }
 
     val context = LocalContext.current
@@ -59,13 +57,10 @@ fun HtmlCard(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .heightIn(min = 60.dp)
                 .height(animatedHeight),
             contentAlignment = Alignment.Center,
         ) {
-//            if (isLoading.value) {
-//                CircularProgressIndicator()
-//            }
-
             AndroidView(
                 factory = { context ->
                     WebView(context).apply {
@@ -78,7 +73,6 @@ fun HtmlCard(
                                 expectedMin = minHeight,
                                 onHeightMeasured = { h ->
                                     heightState = h
-                                    isLoading = false
                                     onHeightMeasured?.invoke()
                                 }
 
@@ -106,7 +100,6 @@ fun HtmlCard(
                 update = { webView ->
                     val lastHtml = webView.tag as? String
                     if (lastHtml != html) {
-                        isLoading = true
                         heightState = minHeight
                         val night = (context.resources.configuration.uiMode and
                                 Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
