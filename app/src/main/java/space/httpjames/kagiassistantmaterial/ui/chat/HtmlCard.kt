@@ -4,6 +4,8 @@ import android.content.res.Configuration
 import android.view.View
 import android.webkit.WebSettings
 import android.webkit.WebView
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -39,12 +41,17 @@ fun HtmlCard(
 
     val context = LocalContext.current
 
+    val animatedHeight = animateDpAsState(
+        targetValue = heightState.dp,
+        animationSpec = tween(300)
+    ).value
+
     Card(
         modifier = modifier
             .fillMaxWidth()
             .padding(start = 12.dp, end = 12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = androidx.compose.ui.graphics.Color.Transparent,
+            containerColor = Color.Transparent,
             contentColor = Color.Transparent
         ),
         shape = RoundedCornerShape(0.dp)
@@ -52,7 +59,7 @@ fun HtmlCard(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(heightState.dp),
+                .height(animatedHeight),
             contentAlignment = Alignment.Center,
         ) {
 //            if (isLoading.value) {
@@ -99,6 +106,8 @@ fun HtmlCard(
                 update = { webView ->
                     val lastHtml = webView.tag as? String
                     if (lastHtml != html) {
+                        isLoading = true
+                        heightState = minHeight
                         val night = (context.resources.configuration.uiMode and
                                 Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
                         val cssScheme = if (night) "dark" else "light"
@@ -109,6 +118,24 @@ fun HtmlCard(
                 },
                 modifier = Modifier.fillMaxWidth(),
             )
+        }
+    }
+}
+
+
+private class HtmlViewerJavaScriptInterface(
+    private val expectedMin: Int,
+    private val onHeightMeasured: (Int) -> Unit
+) {
+    private var lastHeight = 0
+
+    @android.webkit.JavascriptInterface
+    fun resize(height: Int) {
+        // Only call if height actually changed
+        if (height != lastHeight) {
+            lastHeight = height
+            val safeHeight = height.coerceAtLeast(expectedMin)
+            onHeightMeasured(safeHeight)
         }
     }
 }
@@ -1066,22 +1093,4 @@ table td {
         </body>
         </html>
     """.trimIndent()
-}
-
-private class HtmlViewerJavaScriptInterface(
-    private val expectedMin: Int,
-    private val onHeightMeasured: (Int) -> Unit
-) {
-    private var lastHeight = 0
-
-    @android.webkit.JavascriptInterface
-    fun resize(height: Int) {
-        // Only call if height actually changed
-        if (height != lastHeight) {
-            println("resizing to $height")
-            lastHeight = height
-            val safeHeight = height.coerceAtLeast(expectedMin)
-            onHeightMeasured(safeHeight)
-        }
-    }
 }
