@@ -295,10 +295,9 @@ class MessageCenterState(
             val jsonAdapter = moshi.adapter(KagiPromptRequest::class.java)
             val jsonString = jsonAdapter.toJson(requestBody)
 
-            println("json string: $jsonString")
+//            println("json string: $jsonString")
 
             fun onChunk(chunk: StreamChunk) {
-                println("NEW CHUNK $chunk")
                 when (chunk.header) {
                     "thread.json" -> {
                         val json = Json.parseToJsonElement(chunk.data)

@@ -24,6 +24,7 @@ import okio.BufferedSource
 import okio.IOException
 import org.jsoup.Jsoup
 import java.io.File
+import java.util.UUID
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.coroutineContext
 import kotlin.coroutines.resume
@@ -106,7 +107,6 @@ data class QrRemoteSessionDetails(
 
 class AssistantClient(
     private val sessionToken: String,
-    private val ignoredChunks: Set<String> = setOf("thread_list.html:")
 ) {
     private val baseHeaders = Headers.Builder()
         .add("origin", "https://kagi.com")
@@ -193,34 +193,43 @@ class AssistantClient(
         }
     }
 
-    fun getThreads(): Map<String, List<AssistantThread>> {
-        val request = Request.Builder()
-            .url("https://kagi.com/assistant")
-            .headers(baseHeaders)
-            .get()
-            .build()
+    suspend fun getThreads(): Map<String, List<AssistantThread>> {
+        val streamId = UUID.randomUUID().toString()
+        var threadMap = mutableMapOf<String, MutableList<AssistantThread>>()
 
-        client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) throw IllegalStateException("Failed to get threads")
-            val body = response.body?.string() ?: throw IllegalStateException("Empty body")
-            val doc = Jsoup.parse(body)
-            val threadMap = mutableMapOf<String, MutableList<AssistantThread>>()
+        this.fetchStream(
+            streamId = streamId,
+            url = "https://kagi.com/assistant/thread_list",
+            method = "POST",
+            body = """{}""",
+            extraHeaders = mapOf("Content-Type" to "application/json"),
+            onChunk = { chunk ->
+                if (chunk.header == "thread_list.html") {
+                    val html = "<html><body>${chunk.data}</body></html>"
 
-            var currentHeader = "Threads"
-            for (element in doc.select("#sidebar-thread-list .thread-list-header, #sidebar-thread-list .thread")) {
-                when {
-                    element.hasClass("thread-list-header") -> currentHeader = element.text().trim()
-                    element.hasClass("thread") -> {
-                        val title = element.selectFirst(".title")?.text()?.trim().orEmpty()
-                        val excerpt = element.selectFirst(".excerpt")?.text()?.trim().orEmpty()
-                        val id = element.attr("data-code")
-                        val list = threadMap.getOrPut(currentHeader) { mutableListOf() }
-                        list.add(AssistantThread(id, title, excerpt))
+                    val doc = Jsoup.parse(html)
+
+                    var currentHeader = "Threads"
+                    for (element in doc.select(".hide-if-no-threads .thread-list-header, .hide-if-no-threads .thread")) {
+                        when {
+                            element.hasClass("thread-list-header") -> currentHeader =
+                                element.text().trim()
+
+                            element.hasClass("thread") -> {
+                                val title = element.selectFirst(".title")?.text()?.trim().orEmpty()
+                                val excerpt =
+                                    element.selectFirst(".excerpt")?.text()?.trim().orEmpty()
+                                val id = element.attr("data-code")
+                                val list = threadMap.getOrPut(currentHeader) { mutableListOf() }
+                                list.add(AssistantThread(id, title, excerpt))
+                            }
+                        }
                     }
                 }
             }
-            return threadMap
-        }
+        )
+
+        return threadMap
     }
 
     suspend fun fetchStream(
@@ -341,42 +350,26 @@ class AssistantClient(
         source: BufferedSource,
         onChunk: suspend (StreamChunk) -> Unit,
     ) {
-        val wantedHeaders = listOf(
-            "tokens.json", "thread.json", "new_message.json",
-            "profiles.json", "messages.json", "hi", "location.json",
-        )
+        val nullByte = '\u0000'.code.toByte()
 
         try {
-            while (true) {
-                // read the next line in the buffered source
-                val line = source.readUtf8Line()?.replace("\u0000", "") ?: break
+            while (!source.exhausted()) {
+                // Find the null terminator and read the entire chunk at once
+                val terminatorIndex = source.indexOf(nullByte)
+                if (terminatorIndex == -1L) break
 
-                val isPossibleChunkHeader = line.contains(":")
-                if (isPossibleChunkHeader) {
-                    // check if the line starts with a $wantedHeader:
-                    var isWantedHeader = false
-                    var chunkHeader = ""
-                    for (wantedHeader in wantedHeaders) {
-                        if (line.startsWith("$wantedHeader:")) {
-                            isWantedHeader = true
-                            chunkHeader = wantedHeader
-                            break
-                        }
-                    }
+                val chunkData = source.readUtf8(terminatorIndex)
+                source.skip(1) // skip the null terminator
 
-                    if (isWantedHeader) {
-                        val body = line.split(":", limit = 2)[1]
+                // Parse header:body
+                val colonIndex = chunkData.indexOf(':')
+                if (colonIndex == -1) continue
 
-                        onChunk(
-                            StreamChunk(
-                                streamId,
-                                chunkHeader,
-                                body,
-                                false
-                            )
-                        )
-                    }
-                }
+                val header = chunkData.take(colonIndex).trimStart().trim()
+
+                val body = chunkData.substring(colonIndex + 1)
+
+                onChunk(StreamChunk(streamId, header, body, false))
             }
         } catch (e: Exception) {
             throw e
