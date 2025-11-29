@@ -44,6 +44,9 @@ class SettingsScreenState(
         prefs.edit().putBoolean("open_keyboard_automatically", openKeyboardAutomatically).apply()
     }
 
+    fun clearAllPrefs() {
+        prefs.edit().clear().apply()
+    }
 
     suspend fun runInit() {
         return withContext(Dispatchers.IO) {

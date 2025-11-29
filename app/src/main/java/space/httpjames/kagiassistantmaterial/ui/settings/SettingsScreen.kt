@@ -23,12 +23,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import kotlinx.coroutines.launch
 import space.httpjames.kagiassistantmaterial.AssistantClient
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -38,6 +40,7 @@ fun SettingsScreen(
     navController: NavController,
 ) {
     val state = rememberSettingsScreenState(assistantClient)
+    val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
         state.runInit()
@@ -118,7 +121,16 @@ fun SettingsScreen(
                     subtitle = "Sign out of your Kagi account on this device only",
                     pos = SettingsItemPosition.SINGLE,
                     iconBackgroundColor = MaterialTheme.colorScheme.errorContainer,
-                    iconTint = MaterialTheme.colorScheme.onErrorContainer
+                    iconTint = MaterialTheme.colorScheme.onErrorContainer,
+                    onClick = {
+                        coroutineScope.launch {
+                            val loggedOut = assistantClient.deleteSession()
+                            if (loggedOut) {
+                                state.clearAllPrefs()
+                                navController.navigate("landing")
+                            }
+                        }
+                    }
                 )
             }
         }

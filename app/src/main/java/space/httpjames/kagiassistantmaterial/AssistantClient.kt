@@ -169,6 +169,18 @@ class AssistantClient(
         }
     }
 
+    suspend fun deleteSession(): Boolean {
+        return withContext(Dispatchers.IO) {
+            val request = Request.Builder()
+                .headers(baseHeaders)
+                .url("https://kagi.com/logout").get().build()
+
+            client.newCall(request).execute().use { response ->
+                response.isSuccessful
+            }
+        }
+    }
+
     fun checkQrRemoteSession(details: QrRemoteSessionDetails): Result<String> {
         val token = details.token
         val json = "{\"n\":\"$token\"}"

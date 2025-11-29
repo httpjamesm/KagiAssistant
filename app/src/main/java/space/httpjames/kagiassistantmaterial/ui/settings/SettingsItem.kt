@@ -1,6 +1,7 @@
 package space.httpjames.kagiassistantmaterial.ui.settings
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,7 +32,7 @@ fun SettingsItem(
     icon: ImageVector,
     title: String,
     subtitle: String? = null,
-    onClick: () -> Unit = {},
+    onClick: (() -> Unit)? = null,
     pos: SettingsItemPosition,
     iconBackgroundColor: Color,
     iconTint: Color,
@@ -51,13 +52,14 @@ fun SettingsItem(
             .height(82.dp)
             .clip(shape)
             .background(MaterialTheme.colorScheme.surfaceContainerLowest)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .clickable(onClick != null, onClick = onClick ?: {}),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
         ) {
             Surface(
                 modifier = Modifier
