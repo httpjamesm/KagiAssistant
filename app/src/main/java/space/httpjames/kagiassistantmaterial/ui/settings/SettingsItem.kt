@@ -59,7 +59,7 @@ fun SettingsItem(
         Row(
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 12.dp),
         ) {
             Surface(
                 modifier = Modifier
@@ -93,8 +93,8 @@ fun SettingsItem(
             Row(
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(end = 16.dp, top = 12.dp, bottom = 12.dp),
             ) {
-//                VerticalDivider()
                 rightSide()
             }
         }
