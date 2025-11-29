@@ -12,6 +12,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import space.httpjames.kagiassistantmaterial.ui.landing.LandingScreen
 import space.httpjames.kagiassistantmaterial.ui.main.MainScreen
 import space.httpjames.kagiassistantmaterial.ui.theme.KagiAssistantTheme
@@ -42,17 +45,26 @@ class MainActivity : ComponentActivity() {
         val prefs = getSharedPreferences("assistant_prefs", Context.MODE_PRIVATE)
 
         setContent {
-            var sessionToken by remember { mutableStateOf(prefs.getString("session_token", null)) }
-
             KagiAssistantTheme {
-                if (sessionToken != null) {
-                    val assistantClient = AssistantClient(sessionToken!!)
-                    MainScreen(assistantClient = assistantClient)
-                } else {
-                    LandingScreen(onLoginSuccess = {
-                        prefs.edit().putString("session_token", it).apply()
-                        sessionToken = it
-                    })
+                val navController = rememberNavController()
+                val sessionToken = prefs.getString("session_token", null)
+
+                NavHost(
+                    navController = navController,
+                    startDestination = if (sessionToken != null) "main" else "landing"
+                ) {
+                    composable("landing") {
+                        LandingScreen(onLoginSuccess = {
+                            prefs.edit().putString("session_token", it).apply()
+                            navController.navigate("main") {
+                                popUpTo("landing") { inclusive = true }
+                            }
+                        })
+                    }
+                    composable("main") {
+                        val assistantClient = AssistantClient(sessionToken!!)
+                        MainScreen(assistantClient = assistantClient)
+                    }
                 }
             }
         }
