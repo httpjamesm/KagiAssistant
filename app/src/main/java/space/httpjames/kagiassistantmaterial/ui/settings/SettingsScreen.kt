@@ -95,7 +95,9 @@ fun SettingsScreen(
                     state.emailAddress,
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                 )
             } else {
                 CircularProgressIndicator()
