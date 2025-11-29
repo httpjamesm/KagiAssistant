@@ -31,16 +31,24 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.CoroutineScope
 import space.httpjames.kagiassistantmaterial.AssistantClient
 import space.httpjames.kagiassistantmaterial.AssistantThreadMessage
@@ -78,6 +86,25 @@ fun MessageCenter(
     val haptics = LocalHapticFeedback.current
 
     val attachmentPreviewsScrollState = rememberScrollState()
+
+    val focusRequester = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    if (state.showKeyboardAutomatically) {
+        DisposableEffect(lifecycle) {
+            val observer = object : DefaultLifecycleObserver {
+                override fun onResume(owner: LifecycleOwner) {
+//                    Handler(Looper.getMainLooper()).post {
+                    focusRequester.requestFocus()
+                    keyboard?.show()
+//                    }
+                }
+            }
+            lifecycle.addObserver(observer)
+            onDispose { lifecycle.removeObserver(observer) }
+        }
+    }
+
 
     if (state.showAttachmentSizeLimitWarning) {
         AlertDialog(
@@ -129,7 +156,8 @@ fun MessageCenter(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f, fill = false)
-                .animateContentSize(),
+                .animateContentSize()
+                .focusRequester(focusRequester),
             maxLines = 16,
             minLines = 1,
             colors = TextFieldDefaults.colors(

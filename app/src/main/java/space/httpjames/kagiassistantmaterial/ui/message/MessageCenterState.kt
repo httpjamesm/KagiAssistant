@@ -129,6 +129,8 @@ class MessageCenterState(
     var showAttachmentSizeLimitWarning by mutableStateOf(false)
         private set
 
+    val showKeyboardAutomatically = prefs.getBoolean("open_keyboard_automatically", false)
+
     fun addAttachmentUri(uri: String) {
         val totalSize = attachmentUris.sumOf { getFileSize(Uri.parse(it)) }
         val newUriSize = getFileSize(Uri.parse(uri))
