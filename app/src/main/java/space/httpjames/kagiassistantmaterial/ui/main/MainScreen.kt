@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalDensity
+import androidx.navigation.NavController
 import kotlinx.coroutines.launch
 import space.httpjames.kagiassistantmaterial.AssistantClient
 import space.httpjames.kagiassistantmaterial.ui.chat.ChatArea
@@ -27,7 +28,8 @@ import space.httpjames.kagiassistantmaterial.ui.shared.Header
 @Composable
 fun MainScreen(
     assistantClient: AssistantClient,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    navController: NavController
 ) {
     val state = rememberMainState(assistantClient)
     val scope = rememberCoroutineScope()
@@ -71,7 +73,10 @@ fun MainScreen(
                         drawerState.close()
                     }
                 },
-                isLoading = state.threadsLoading
+                isLoading = state.threadsLoading,
+                onSettingsClick = {
+                    navController.navigate("settings")
+                }
             )
         }) {
         Scaffold(

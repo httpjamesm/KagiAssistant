@@ -153,6 +153,34 @@ class AssistantClient(
         }
     }
 
+    fun getAccountEmailAddress(): String {
+        val request = Request.Builder()
+            .headers(baseHeaders)
+            .url("https://kagi.com/settings/change_email").get().build()
+
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) return ""
+
+            val html = response.body?.string()
+            // html parse the first ._0_pass_field's value attr
+            val doc = Jsoup.parse(html ?: return "")
+            val element = doc.selectFirst("._0_pass_field")
+            return element?.attr("value") ?: ""
+        }
+    }
+
+    suspend fun deleteSession(): Boolean {
+        return withContext(Dispatchers.IO) {
+            val request = Request.Builder()
+                .headers(baseHeaders)
+                .url("https://kagi.com/logout").get().build()
+
+            client.newCall(request).execute().use { response ->
+                response.isSuccessful
+            }
+        }
+    }
+
     fun checkQrRemoteSession(details: QrRemoteSessionDetails): Result<String> {
         val token = details.token
         val json = "{\"n\":\"$token\"}"
@@ -318,7 +346,7 @@ class AssistantClient(
                         val source = response.body?.source()
                         if (!response.isSuccessful || source == null) {
                             response.close()
-                            cont.resumeWithException(IOException("HTTP error ${response.code}"))
+                            cont.resumeWithException(IOException("HTTP error ${response.code} from ${request.url}"))
                             return
                         }
 
