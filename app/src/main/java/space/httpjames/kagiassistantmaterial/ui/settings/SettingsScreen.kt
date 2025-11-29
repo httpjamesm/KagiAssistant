@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.provider.Settings
 import android.service.voice.VoiceInteractionService
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Arrangement
@@ -21,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Stars
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
@@ -35,9 +37,11 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -55,6 +59,13 @@ fun SettingsScreen(
     val coroutineScope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
     val context = LocalContext.current
+    val uriHandler = LocalUriHandler.current
+
+    val packageInfo = context.packageManager.getPackageInfo(
+        context.packageName,
+        0
+    )
+
 
     LaunchedEffect(Unit) {
         state.runInit()
@@ -87,7 +98,7 @@ fun SettingsScreen(
                 .padding(innerPadding)
                 .fillMaxWidth()
                 .scrollable(scrollState, Orientation.Vertical),
-            horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+            horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Spacer(modifier = Modifier.height(32.dp))
@@ -107,7 +118,7 @@ fun SettingsScreen(
                         .size(128.dp)
                         .fillMaxWidth(),
                     horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     CircularProgressIndicator()
                 }
@@ -168,6 +179,24 @@ fun SettingsScreen(
                     .padding(horizontal = 16.dp),
             ) {
                 SettingsItem(
+                    icon = Icons.Default.Refresh,
+                    title = "Check for updates",
+                    subtitle = "Version v${packageInfo.versionName}",
+                    pos = SettingsItemPosition.SINGLE,
+                    iconBackgroundColor = MaterialTheme.colorScheme.primaryContainer,
+                    iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    onClick = {
+                        uriHandler.openUri("https://github.com/httpjamesm/KagiAssistant/releases")
+                    }
+                )
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+            ) {
+                SettingsItem(
                     icon = Icons.Default.Logout,
                     title = "Sign out",
                     subtitle = "Sign out of your Kagi account on this device only",
@@ -183,6 +212,38 @@ fun SettingsScreen(
                             }
                         }
                     }
+                )
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    "Source Code",
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.clickable {
+                        uriHandler.openUri("https://github.com/httpjamesm/KagiAssistant")
+                    },
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    "© http.james",
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.clickable {
+                        uriHandler.openUri("https://httpjames.space")
+                    },
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    "Not officially endorsed by Kagi Inc.",
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.labelSmall
                 )
             }
         }
