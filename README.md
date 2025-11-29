@@ -1,11 +1,21 @@
+<div align="center">
+
 # KagiAssistant
+
+![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)
+![Kotlin](https://img.shields.io/badge/Kotlin-B125EA?style=for-the-badge&logo=kotlin&logoColor=white)
+![Material Design](https://img.shields.io/badge/material%20design-757575?style=for-the-badge&logo=material%20design&logoColor=white)
+
+</div>
 
 Native Material You Android app for Kagi Assistant.
 
-- Fully themed interface
-- One-click sign in support
-- Premium haptic feedback
-- Automatically launch as default assistant
+## Features
+
+- 🎨 Material You with full dynamic theming
+- 🔐 One-tap Kagi sign-in
+- 🎛️ Set as default assistant
+- 📳 High-quality haptic feedback
 
 ## Screenshots
 
@@ -15,11 +25,13 @@ Native Material You Android app for Kagi Assistant.
 
 ## Installation
 
-Download the `.apk` from [Releases](https://github.com/httpjamesm/KagiAssistant/releases).
+1. Download the `.apk` from [Releases](https://github.com/httpjamesm/KagiAssistant/releases).
+2. Click on the `.apk` file in your Downloads and click "Install"
 
 > Your device must be running **Android 16 or later**. Otherwise, you will likely encounter a
 > package parsing error when attempting to install the app.
 
 ## Meta
 
-Not officially endorsed by Kagi Inc. but they don't mind third party apps for personal use.
+- Create issues for feature requests.
+- Not officially endorsed by Kagi Inc. but they don't mind third party apps for personal use.
