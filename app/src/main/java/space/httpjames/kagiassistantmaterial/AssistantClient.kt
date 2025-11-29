@@ -346,7 +346,7 @@ class AssistantClient(
                         val source = response.body?.source()
                         if (!response.isSuccessful || source == null) {
                             response.close()
-                            cont.resumeWithException(IOException("HTTP error ${response.code}"))
+                            cont.resumeWithException(IOException("HTTP error ${response.code} from ${request.url}"))
                             return
                         }
 

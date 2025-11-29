@@ -43,7 +43,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             KagiAssistantTheme {
                 val navController = rememberNavController()
-                val sessionToken = prefs.getString("session_token", null)
+                var sessionToken = prefs.getString("session_token", null)
 
                 NavHost(
                     navController = navController,
@@ -52,6 +52,7 @@ class MainActivity : ComponentActivity() {
                     composable("landing") {
                         LandingScreen(onLoginSuccess = {
                             prefs.edit().putString("session_token", it).apply()
+                            sessionToken = it
                             navController.navigate("main") {
                                 popUpTo("landing") { inclusive = true }
                             }
