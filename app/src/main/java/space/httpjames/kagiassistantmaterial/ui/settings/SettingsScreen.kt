@@ -9,11 +9,13 @@ import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -88,7 +90,7 @@ fun SettingsScreen(
             horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Spacer(modifier = Modifier.height(128.dp))
+            Spacer(modifier = Modifier.height(32.dp))
             if (!state.emailAddressLoading) {
                 InitialsAvatar(char = state.emailAddress.firstOrNull() ?: 'K')
                 Text(
@@ -100,7 +102,15 @@ fun SettingsScreen(
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                 )
             } else {
-                CircularProgressIndicator()
+                Row(
+                    modifier = Modifier
+                        .size(128.dp)
+                        .fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                ) {
+                    CircularProgressIndicator()
+                }
             }
 
             Spacer(modifier = Modifier.height(32.dp))
