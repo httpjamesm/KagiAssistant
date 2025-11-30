@@ -1,6 +1,7 @@
 package space.httpjames.kagiassistantmaterial
 
 import android.Manifest
+import android.R
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -17,16 +18,25 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Send
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -40,6 +50,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -71,7 +82,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        val rootView: View = findViewById(android.R.id.content)
+        val rootView: View = findViewById(R.id.content)
 
         ViewCompat.setOnApplyWindowInsetsListener(rootView) { v, insets ->
             val imeVisible = insets.isVisible(WindowInsetsCompat.Type.ime())
@@ -237,6 +248,7 @@ fun AssistantOverlayScreen(
 
     val speechRecognizer = remember { SpeechRecognizer.createSpeechRecognizer(context) }
 
+
     val listener = remember {
         object : RecognitionListener {
             override fun onResults(b: Bundle?) {
@@ -249,12 +261,30 @@ fun AssistantOverlayScreen(
                     ?.firstOrNull() ?: text
             }
 
-            override fun onError(e: Int) {}
+            override fun onError(e: Int) {
+                val msg = when (e) {
+                    SpeechRecognizer.ERROR_AUDIO -> "Audio error"
+                    SpeechRecognizer.ERROR_CLIENT -> "Client side error"
+                    SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Missing RECORD_AUDIO"
+                    SpeechRecognizer.ERROR_NETWORK -> "Network error"
+                    SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "Network timeout"
+                    SpeechRecognizer.ERROR_NO_MATCH -> "No speech match"
+                    SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "RecognitionService busy"
+                    SpeechRecognizer.ERROR_SERVER -> "Server error"
+                    SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "No speech input"
+                    else -> "Unknown ($e)"
+                }
+                print("onError: $msg")
+            }
+
             override fun onReadyForSpeech(b: Bundle?) {}
             override fun onBeginningOfSpeech() {}
             override fun onRmsChanged(db: Float) {}
             override fun onBufferReceived(b: ByteArray?) {}
-            override fun onEndOfSpeech() {}
+            override fun onEndOfSpeech() {
+                println("end of speech detected")
+            }
+
             override fun onEvent(e: Int, b: Bundle?) {}
         }
     }
@@ -285,21 +315,65 @@ fun AssistantOverlayScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.7f)),
-        contentAlignment = Alignment.BottomEnd
+            .background(Color.Black.copy(alpha = 0.7f))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onDismiss
+            ),
+        contentAlignment = Alignment.BottomEnd,
     ) {
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(start = 12.dp, end = 12.dp, bottom = 36.dp)
-                .height(200.dp),
-            color = Color.White,
-            shape = RoundedCornerShape(24.dp)
+                .height(84.dp),
+            color = MaterialTheme.colorScheme.background,
+            shape = RoundedCornerShape(percent = 50)
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("Assistant Overlay", color = Color.Black)
-                Text(text, color = Color.Black)
-                Button(onClick = onDismiss) { Text("Close") }
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier
+                    .padding(12.dp)
+                    .background(
+                        MaterialTheme.colorScheme.surfaceContainerHighest,
+                        RoundedCornerShape(percent = 50)
+                    ),
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    BasicTextField(
+                        value = text,
+                        onValueChange = { text = it },
+                        textStyle = LocalTextStyle.current.copy(
+                            fontSize = 16.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        ),
+                        modifier = Modifier
+//                            .fillMaxWidth()
+                            .weight(0.8f, fill = false)
+                            .height(64.dp)
+                            .background(
+                                color = Color.Transparent,
+                            )
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        decorationBox = { innerTextField ->
+                            Box(contentAlignment = Alignment.CenterStart) { innerTextField() }
+                        }
+                    )
+
+                    IconButton(onClick = {}) {
+                        Icon(
+                            imageVector = Icons.Default.Send,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
             }
         }
     }
