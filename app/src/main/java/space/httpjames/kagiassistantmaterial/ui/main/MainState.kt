@@ -94,8 +94,14 @@ class MainState(
         threadsLoading = true
         coroutineScope.launch {
             withContext(Dispatchers.IO) {
-                threads = assistantClient.getThreads()
-                threadsLoading = false
+                try {
+                    threads = assistantClient.getThreads()
+                } catch (e: Exception) {
+                    println("Error fetching threads: ${e.message}")
+                    e.printStackTrace()
+                } finally {
+                    threadsLoading = false
+                }
             }
         }
     }
@@ -169,14 +175,14 @@ class MainState(
                                     )
                                 )
                             }
-
-                            threadMessagesLoading = false
                         }
                     }
                 )
             } catch (e: Exception) {
                 println("Error fetching thread: ${e.message}")
                 e.printStackTrace()
+            } finally {
+                threadMessagesLoading = false
             }
 
             drawerState.close()
@@ -185,12 +191,6 @@ class MainState(
 
     fun _setCurrentThreadId(id: String?) {
         currentThreadId = id
-    }
-
-    fun openDrawer() {
-        coroutineScope.launch {
-            drawerState.open()
-        }
     }
 }
 

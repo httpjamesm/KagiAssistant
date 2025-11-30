@@ -13,12 +13,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
 import space.httpjames.kagiassistantmaterial.AssistantClient
 import space.httpjames.kagiassistantmaterial.ui.message.AssistantProfile
-import space.httpjames.kagiassistantmaterial.ui.message.toObject
-import java.util.UUID
 
 @Composable
 fun rememberModelBottomSheetState(
@@ -64,30 +60,11 @@ class ModelBottomSheetState(
 
     fun fetchProfiles() {
         coroutineScope.launch {
-            val streamId = UUID.randomUUID().toString()
-            assistantClient.fetchStream(
-                streamId = streamId,
-                url = "https://kagi.com/assistant/profile_list",
-                method = "POST",
-                body = """{}""",
-                extraHeaders = mapOf("Content-Type" to "application/json"),
-                onChunk = { chunk ->
-                    if (chunk.header == "profiles.json") {
-                        val parsedProfiles = Json.parseToJsonElement(chunk.data)
-                            .jsonObject["profiles"]?.jsonArray
-                            ?.map { it.toObject<AssistantProfile>() }
-                            .orEmpty()
-
-                        val (kagiProfiles, otherProfiles) = parsedProfiles.partition {
-                            it.family.equals(
-                                "kagi",
-                                ignoreCase = true
-                            )
-                        }
-                        this@ModelBottomSheetState.profiles = kagiProfiles + otherProfiles
-                    }
-                }
-            )
+            try {
+                profiles = assistantClient.getProfiles()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 

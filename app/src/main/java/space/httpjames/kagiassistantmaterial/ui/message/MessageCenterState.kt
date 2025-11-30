@@ -27,7 +27,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import space.httpjames.kagiassistantmaterial.AssistantClient
@@ -177,22 +176,11 @@ class MessageCenterState(
 
     private fun fetchProfiles() {
         coroutineScope.launch {
-            val streamId = UUID.randomUUID().toString()
-            assistantClient.fetchStream(
-                streamId = streamId,
-                url = "https://kagi.com/assistant/profile_list",
-                method = "POST",
-                body = "{}",
-                extraHeaders = mapOf("Content-Type" to "application/json"),
-                onChunk = { chunk ->
-                    if (chunk.header == "profiles.json") {
-                        this@MessageCenterState.profiles = Json.parseToJsonElement(chunk.data)
-                            .jsonObject["profiles"]?.jsonArray
-                            ?.map { it.toObject<AssistantProfile>() }
-                            .orEmpty()
-                    }
-                }
-            )
+            try {
+                this@MessageCenterState.profiles = assistantClient.getProfiles()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 
@@ -425,24 +413,32 @@ class MessageCenterState(
 
                 attachmentUris = emptyList()
 
-                assistantClient.sendMultipartRequest(
-                    streamId = streamId,
-                    url = url,
-                    requestBody = requestBody,
-                    files = files,
-                    thumbnails = thumbnails,
-                    mimeTypes = mimeTypes,
-                    onChunk = ::onChunk
-                )
+                try {
+                    assistantClient.sendMultipartRequest(
+                        streamId = streamId,
+                        url = url,
+                        requestBody = requestBody,
+                        files = files,
+                        thumbnails = thumbnails,
+                        mimeTypes = mimeTypes,
+                        onChunk = ::onChunk
+                    )
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
             } else {
-                assistantClient.fetchStream(
-                    streamId = streamId,
-                    url = url,
-                    method = "POST",
-                    body = jsonString,
-                    extraHeaders = mapOf("Content-Type" to "application/json"),
-                    onChunk = { chunk -> onChunk(chunk) }
-                )
+                try {
+                    assistantClient.fetchStream(
+                        streamId = streamId,
+                        url = url,
+                        method = "POST",
+                        body = jsonString,
+                        extraHeaders = mapOf("Content-Type" to "application/json"),
+                        onChunk = { chunk -> onChunk(chunk) }
+                    )
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
             }
 
             // Final sync to catch any remaining updates
