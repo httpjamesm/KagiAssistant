@@ -135,7 +135,7 @@ fun SettingsScreen(
                 SettingsItem(
                     icon = Icons.Default.Stars,
                     title = "Set default assistant",
-                    subtitle = "Open Kagi Assistant on device invocation",
+                    subtitle = "Open app on assistant invocation",
                     pos = SettingsItemPosition.TOP,
                     iconBackgroundColor = MaterialTheme.colorScheme.primaryContainer,
                     iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -160,8 +160,8 @@ fun SettingsScreen(
                 )
                 SettingsItem(
                     icon = Icons.Default.Keyboard,
-                    title = "Open Keyboard automatically",
-                    subtitle = "Focus the message bar on app open",
+                    title = "Auto keyboard",
+                    subtitle = "Always focus the message bar",
                     pos = SettingsItemPosition.BOTTOM,
                     iconBackgroundColor = MaterialTheme.colorScheme.primaryContainer,
                     iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
