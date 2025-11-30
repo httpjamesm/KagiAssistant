@@ -9,6 +9,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.decodeFromJsonElement
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.Headers
@@ -23,6 +26,7 @@ import okhttp3.Response
 import okio.BufferedSource
 import okio.IOException
 import org.jsoup.Jsoup
+import space.httpjames.kagiassistantmaterial.utils.JsonLenient
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.TimeUnit
@@ -64,6 +68,29 @@ data class AssistantThreadMessageDocument(
     val mime: String,
     val data: Bitmap?,
 )
+
+@Serializable
+data class MessageDto(
+    val id: String,
+    val prompt: String = "",
+    val reply: String = "",
+    val documents: List<DocumentDto> = emptyList(),
+    val branch_list: List<String> = emptyList(),
+    val references_html: String = "",
+    val md: String? = null,
+    val metadata: String = ""
+)
+
+@Serializable
+data class DocumentDto(
+    val id: String,
+    val name: String,
+    val mime: String,
+    val data: String? = null
+)
+
+inline fun <reified T> JsonElement.toObject(): T =
+    JsonLenient.decodeFromJsonElement<T>(this)
 
 @JsonClass(generateAdapter = true)
 data class KagiPromptRequest(
