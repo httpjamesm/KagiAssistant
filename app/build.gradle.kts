@@ -61,6 +61,8 @@ dependencies {
     implementation("com.google.accompanist:accompanist-placeholder-material3:0.32.0")
     implementation("androidx.compose.material:material-icons-extended:1.5.4")
     implementation("com.google.android.material:material:1.12.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7") // or your current version
+    implementation("androidx.savedstate:savedstate-ktx:1.2.1")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)

@@ -36,6 +36,7 @@ fun MainScreen(
     val scope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(DrawerValue.Closed)
 
+    
     // Track keyboard visibility
     val density = LocalDensity.current
     val imeVisible = WindowInsets.ime.getBottom(density) > 0
