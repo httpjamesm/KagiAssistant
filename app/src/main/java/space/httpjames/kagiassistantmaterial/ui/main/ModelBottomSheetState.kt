@@ -13,13 +13,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import space.httpjames.kagiassistantmaterial.AssistantClient
 import space.httpjames.kagiassistantmaterial.ui.message.AssistantProfile
+import space.httpjames.kagiassistantmaterial.ui.message.toObject
 import java.util.UUID
 
 @Composable
@@ -75,27 +73,10 @@ class ModelBottomSheetState(
                 extraHeaders = mapOf("Content-Type" to "application/json"),
                 onChunk = { chunk ->
                     if (chunk.header == "profiles.json") {
-                        val json = Json.parseToJsonElement(chunk.data)
-                        val nest = json.jsonObject
-                        val profilesJson = nest["profiles"]?.jsonArray ?: emptyList()
-
-                        val parsedProfiles = profilesJson.map { profile ->
-                            println(profile)
-                            val obj = profile.jsonObject
-                            val key = obj["id"]?.jsonPrimitive?.contentOrNull
-                                ?: obj["model"]?.jsonPrimitive?.contentOrNull
-                            if (key == null) {
-                                throw IllegalStateException("Profile key is null")
-                            }
-                            AssistantProfile(
-                                key,
-                                obj["id"]?.jsonPrimitive?.contentOrNull,
-                                obj["model"]?.jsonPrimitive?.contentOrNull ?: "",
-                                obj["model_provider"]?.jsonPrimitive?.contentOrNull ?: "",
-                                obj["name"]?.jsonPrimitive?.contentOrNull ?: "",
-                                obj["model_input_limit"]?.jsonPrimitive?.int ?: 40000,
-                            )
-                        }
+                        val parsedProfiles = Json.parseToJsonElement(chunk.data)
+                            .jsonObject["profiles"]?.jsonArray
+                            ?.map { it.toObject<AssistantProfile>() }
+                            .orEmpty()
 
                         val (kagiProfiles, otherProfiles) = parsedProfiles.partition {
                             it.family.equals(

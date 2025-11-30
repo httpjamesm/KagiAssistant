@@ -109,7 +109,7 @@ data class QrRemoteSessionDetails(
 )
 
 class AssistantClient(
-    private val sessionToken: String,
+    sessionToken: String,
 ) {
     private val baseHeaders = Headers.Builder()
         .add("origin", "https://kagi.com")

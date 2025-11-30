@@ -27,7 +27,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -182,28 +181,14 @@ class MessageCenterState(
                 streamId = streamId,
                 url = "https://kagi.com/assistant/profile_list",
                 method = "POST",
-                body = """{}""",
+                body = "{}",
                 extraHeaders = mapOf("Content-Type" to "application/json"),
                 onChunk = { chunk ->
                     if (chunk.header == "profiles.json") {
-                        val json = Json.parseToJsonElement(chunk.data)
-                        val nest = json.jsonObject
-                        val profiles = nest["profiles"]?.jsonArray ?: emptyList()
-
-                        this@MessageCenterState.profiles = emptyList()
-
-                        for (profile in profiles) {
-                            val obj = profile.jsonObject
-                            this@MessageCenterState.profiles += AssistantProfile(
-                                obj["id"]?.jsonPrimitive?.contentOrNull
-                                    ?: obj["model"]?.jsonPrimitive?.contentOrNull ?: "",
-                                obj["id"]?.jsonPrimitive?.contentOrNull,
-                                obj["model"]?.jsonPrimitive?.contentOrNull ?: "",
-                                obj["model_provider"]?.jsonPrimitive?.contentOrNull ?: "",
-                                obj["name"]?.jsonPrimitive?.contentOrNull ?: "",
-                                obj["model_input_limit"]?.jsonPrimitive?.int ?: 40000,
-                            )
-                        }
+                        this@MessageCenterState.profiles = Json.parseToJsonElement(chunk.data)
+                            .jsonObject["profiles"]?.jsonArray
+                            ?.map { it.toObject<AssistantProfile>() }
+                            .orEmpty()
                     }
                 }
             )
