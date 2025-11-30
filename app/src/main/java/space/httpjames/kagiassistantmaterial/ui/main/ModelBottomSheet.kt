@@ -3,10 +3,12 @@ package space.httpjames.kagiassistantmaterial.ui.main
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -14,6 +16,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -29,6 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CoroutineScope
 import space.httpjames.kagiassistantmaterial.AssistantClient
+import space.httpjames.kagiassistantmaterial.utils.DataFetchingState
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -53,7 +57,7 @@ fun ModelBottomSheet(
         LaunchedEffect(Unit) {
             state.fetchProfiles()
         }
-        if (state.profiles.isEmpty()) {
+        if (state.profiles.isEmpty() && state.profilesCallState == DataFetchingState.FETCHING) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -62,6 +66,8 @@ fun ModelBottomSheet(
             ) {
                 CircularProgressIndicator()
             }
+        } else if (state.profiles.isEmpty() && state.profilesCallState == DataFetchingState.ERRORED) {
+            ModelsLoadingErrored(onRetryClick = { state.fetchProfiles() })
         } else {
             val recentlyUsedProfiles = state.getRecentlyUsedProfiles()
             val remainingProfiles = state.filteredProfiles
@@ -186,6 +192,21 @@ fun ModelBottomSheet(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun ModelsLoadingErrored(onRetryClick: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("Failed to fetch models")
+        Spacer(modifier = Modifier.height(8.dp))
+        Button(onClick = onRetryClick) {
+            Text("Retry")
         }
     }
 }

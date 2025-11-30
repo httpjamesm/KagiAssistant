@@ -28,6 +28,7 @@ import space.httpjames.kagiassistantmaterial.Citation
 import space.httpjames.kagiassistantmaterial.MessageDto
 import space.httpjames.kagiassistantmaterial.parseMetadata
 import space.httpjames.kagiassistantmaterial.toObject
+import space.httpjames.kagiassistantmaterial.utils.DataFetchingState
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 
@@ -45,13 +46,13 @@ class MainState(
     val drawerState: DrawerState,
     val coroutineScope: CoroutineScope
 ) {
-    var threadsLoading by mutableStateOf(false)
+    var threadsCallState by mutableStateOf<DataFetchingState>(DataFetchingState.FETCHING)
         private set
     var threads by mutableStateOf<Map<String, List<AssistantThread>>>(emptyMap())
         private set
     var currentThreadId by mutableStateOf<String?>(null)
         private set
-    var threadMessagesLoading by mutableStateOf(false)
+    var threadMessagesCallState by mutableStateOf<DataFetchingState>(DataFetchingState.OK)
         private set
     var threadMessages by mutableStateOf<List<AssistantThreadMessage>>(emptyList())
     var currentThreadTitle by mutableStateOf<String?>(null)
@@ -91,16 +92,16 @@ class MainState(
     }
 
     fun fetchThreads() {
-        threadsLoading = true
         coroutineScope.launch {
             withContext(Dispatchers.IO) {
                 try {
+                    threadsCallState = DataFetchingState.FETCHING
                     threads = assistantClient.getThreads()
+                    threadsCallState = DataFetchingState.OK
                 } catch (e: Exception) {
                     println("Error fetching threads: ${e.message}")
                     e.printStackTrace()
-                } finally {
-                    threadsLoading = false
+                    threadsCallState = DataFetchingState.ERRORED
                 }
             }
         }
@@ -125,7 +126,7 @@ class MainState(
         currentThreadTitle = null
         coroutineScope.launch {
             try {
-                threadMessagesLoading = true
+                threadMessagesCallState = DataFetchingState.FETCHING
                 assistantClient.fetchStream(
                     streamId = "8ce77b1b-35c5-4262-8821-af3b33d1cf0f",
                     url = "https://kagi.com/assistant/thread_open",
@@ -175,14 +176,13 @@ class MainState(
                                     )
                                 )
                             }
+                            threadMessagesCallState = DataFetchingState.OK
                         }
                     }
                 )
             } catch (e: Exception) {
-                println("Error fetching thread: ${e.message}")
                 e.printStackTrace()
-            } finally {
-                threadMessagesLoading = false
+                threadMessagesCallState = DataFetchingState.ERRORED
             }
 
             drawerState.close()

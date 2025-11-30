@@ -4,14 +4,17 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -33,15 +36,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import space.httpjames.kagiassistantmaterial.AssistantThread
+import space.httpjames.kagiassistantmaterial.utils.DataFetchingState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ThreadsDrawerSheet(
-    isLoading: Boolean,
+    callState: DataFetchingState,
     threads: Map<String, List<AssistantThread>>,
     onThreadSelected: (String) -> Unit,
     modifier: Modifier = Modifier,
-    onSettingsClick: () -> Unit
+    onSettingsClick: () -> Unit,
+    onRetryClick: () -> Unit,
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var active by remember { mutableStateOf(false) }
@@ -86,13 +91,17 @@ fun ThreadsDrawerSheet(
                     .fillMaxWidth()
             ) {
                 when {
-                    isLoading && threads.isEmpty() -> Row(
+                    callState == DataFetchingState.FETCHING && threads.isEmpty() -> Row(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(16.dp),
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) { CircularProgressIndicator() }
+
+                    callState == DataFetchingState.ERRORED && threads.isEmpty() -> ThreadListErrored(
+                        onRetryClick = onRetryClick
+                    )
 
                     else -> ThreadList(
                         threads = filteredThreads,
@@ -158,6 +167,23 @@ private fun ThreadList(
                     shape = RectangleShape
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun ThreadListErrored(
+    onRetryClick: () -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("Failed to fetch threads")
+        Spacer(modifier = Modifier.height(8.dp))
+        Button(onClick = onRetryClick) {
+            Text("Retry")
         }
     }
 }

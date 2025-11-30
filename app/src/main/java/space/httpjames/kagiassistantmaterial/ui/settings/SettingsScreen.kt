@@ -9,8 +9,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -49,6 +49,7 @@ import androidx.navigation.NavController
 import kotlinx.coroutines.launch
 import space.httpjames.kagiassistantmaterial.AssistantClient
 import space.httpjames.kagiassistantmaterial.Screens
+import space.httpjames.kagiassistantmaterial.utils.DataFetchingState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,7 +67,6 @@ fun SettingsScreen(
         context.packageName,
         0
     )
-
 
     LaunchedEffect(Unit) {
         state.runInit()
@@ -103,27 +103,37 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Spacer(modifier = Modifier.height(32.dp))
-            if (!state.emailAddressLoading) {
-                InitialsAvatar(char = state.emailAddress.firstOrNull() ?: 'K')
-                Text(
-                    state.emailAddress,
-                    textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                )
-            } else {
-                Row(
-                    modifier = Modifier
-                        .size(128.dp)
-                        .fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    CircularProgressIndicator()
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(140.dp)
+                    .padding(horizontal = 16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                when (state.emailAddressCallState) {
+                    DataFetchingState.FETCHING -> CircularProgressIndicator(
+                        modifier = Modifier.size(48.dp)
+                    )
+
+                    DataFetchingState.OK -> {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            InitialsAvatar(char = state.emailAddress.firstOrNull() ?: 'K')
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = state.emailAddress,
+                                textAlign = TextAlign.Center,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+
+                    else -> Unit
                 }
             }
+
 
             Spacer(modifier = Modifier.height(32.dp))
 

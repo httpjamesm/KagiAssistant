@@ -15,6 +15,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import space.httpjames.kagiassistantmaterial.AssistantClient
 import space.httpjames.kagiassistantmaterial.ui.message.AssistantProfile
+import space.httpjames.kagiassistantmaterial.utils.DataFetchingState
 
 @Composable
 fun rememberModelBottomSheetState(
@@ -33,6 +34,8 @@ class ModelBottomSheetState(
     private val coroutineScope: CoroutineScope,
 ) {
     var profiles by mutableStateOf<List<AssistantProfile>>(emptyList())
+        private set
+    var profilesCallState by mutableStateOf<DataFetchingState>(DataFetchingState.FETCHING)
         private set
 
     var searchQuery by mutableStateOf("")
@@ -61,9 +64,12 @@ class ModelBottomSheetState(
     fun fetchProfiles() {
         coroutineScope.launch {
             try {
+                profilesCallState = DataFetchingState.FETCHING
                 profiles = assistantClient.getProfiles()
+                profilesCallState = DataFetchingState.OK
             } catch (e: Exception) {
                 e.printStackTrace()
+                profilesCallState = DataFetchingState.ERRORED
             }
         }
     }

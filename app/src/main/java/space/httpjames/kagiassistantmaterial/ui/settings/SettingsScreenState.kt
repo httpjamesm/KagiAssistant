@@ -11,6 +11,7 @@ import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import space.httpjames.kagiassistantmaterial.AssistantClient
+import space.httpjames.kagiassistantmaterial.utils.DataFetchingState
 
 @Composable
 fun rememberSettingsScreenState(assistantClient: AssistantClient): SettingsScreenState {
@@ -29,7 +30,7 @@ class SettingsScreenState(
 ) {
     var emailAddress by mutableStateOf("")
         private set
-    var emailAddressLoading by mutableStateOf(true)
+    var emailAddressCallState by mutableStateOf<DataFetchingState>(DataFetchingState.FETCHING)
         private set
 
     var openKeyboardAutomatically by mutableStateOf(
@@ -51,8 +52,14 @@ class SettingsScreenState(
 
     suspend fun runInit() {
         return withContext(Dispatchers.IO) {
-            emailAddress = assistantClient.getAccountEmailAddress()
-            emailAddressLoading = false
+            try {
+                emailAddressCallState = DataFetchingState.FETCHING
+                emailAddress = assistantClient.getAccountEmailAddress()
+                emailAddressCallState = DataFetchingState.OK
+            } catch (e: Exception) {
+                emailAddressCallState = DataFetchingState.ERRORED
+                e.printStackTrace()
+            }
         }
     }
 

@@ -6,13 +6,16 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
@@ -38,19 +41,19 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.android.awaitFrame
 import kotlinx.coroutines.launch
-import space.httpjames.kagiassistantmaterial.AssistantClient
 import space.httpjames.kagiassistantmaterial.AssistantThreadMessage
 import space.httpjames.kagiassistantmaterial.AssistantThreadMessageRole
 import space.httpjames.kagiassistantmaterial.R
+import space.httpjames.kagiassistantmaterial.utils.DataFetchingState
 
 @Composable
 fun ChatArea(
-    assistantClient: AssistantClient,
     modifier: Modifier = Modifier,
-    isLoading: Boolean,
+    threadMessagesCallState: DataFetchingState,
     currentThreadId: String?,
     threadMessages: List<AssistantThreadMessage>,
     onEdit: (String) -> Unit,
+    onRetryClick: () -> Unit,
 ) {
 
     val scrollState = rememberScrollState()
@@ -72,7 +75,7 @@ fun ChatArea(
         animationSpec = tween(durationMillis = 1200),
         label = "ChatAreaCrossfade"
     ) {
-        if (isLoading) {
+        if (threadMessagesCallState == DataFetchingState.FETCHING) {
             Column(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.Center,
@@ -80,6 +83,8 @@ fun ChatArea(
             ) {
                 CircularProgressIndicator()
             }
+        } else if (threadMessagesCallState == DataFetchingState.ERRORED) {
+            ChatAreaThreadMessagesErrored(onRetryClick = onRetryClick)
         } else if (!it) {
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -201,5 +206,22 @@ fun ChatArea(
         pendingMeasurements =
             threadMessages.count { it.role == AssistantThreadMessageRole.ASSISTANT }
         measurementComplete = false
+    }
+}
+
+@Composable
+private fun ChatAreaThreadMessagesErrored(
+    onRetryClick: () -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("Failed to fetch messages")
+        Spacer(modifier = Modifier.height(8.dp))
+        Button(onClick = onRetryClick) {
+            Text("Retry")
+        }
     }
 }

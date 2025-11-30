@@ -74,11 +74,16 @@ fun MainScreen(
                         drawerState.close()
                     }
                 },
-                isLoading = state.threadsLoading,
+                callState = state.threadsCallState,
                 onSettingsClick = {
                     scope.launch {
                         navController.navigate(Screens.SETTINGS.route)
                         drawerState.close()
+                    }
+                },
+                onRetryClick = {
+                    scope.launch {
+                        state.fetchThreads()
                     }
                 }
             )
@@ -124,15 +129,19 @@ fun MainScreen(
                 modifier = Modifier.fillMaxSize()
             ) {
                 ChatArea(
-                    assistantClient = assistantClient,
                     threadMessages = state.threadMessages,
                     modifier = Modifier
                         .padding(innerPadding)
                         .weight(1f),
-                    isLoading = state.threadMessagesLoading,
+                    threadMessagesCallState = state.threadMessagesCallState,
                     currentThreadId = state.currentThreadId,
                     onEdit = {
                         state.editMessage(it)
+                    },
+                    onRetryClick = {
+                        scope.launch {
+                            state.onThreadSelected(state.currentThreadId!!)
+                        }
                     }
                 )
                 MessageCenter(

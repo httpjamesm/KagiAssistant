@@ -207,6 +207,7 @@ class MessageCenterState(
     }
 
     fun sendMessage(threadId: String?) {
+
         var messageId = UUID.randomUUID().toString()
         inProgressAssistantMessageId = messageId
 
@@ -228,6 +229,7 @@ class MessageCenterState(
         setThreadMessages(localMessages) // Direct call to the constructor param
 
         coroutineScope.launch {
+
             val streamId = UUID.randomUUID().toString()
             var lastTokenUpdateTime = 0L
 
@@ -243,6 +245,14 @@ class MessageCenterState(
             )
 
             setText("")
+
+            try {
+                if (profiles.isEmpty()) {
+                    this@MessageCenterState.profiles = assistantClient.getProfiles()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
 
             val requestBody = KagiPromptRequest(
                 focus,

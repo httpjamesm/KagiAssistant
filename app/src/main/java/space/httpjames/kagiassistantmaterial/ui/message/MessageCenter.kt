@@ -222,19 +222,17 @@ fun MessageCenter(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                if (state.profiles.isNotEmpty()) {
-                    OutlinedButton(
-                        onClick = {
-                            state.openModelBottomSheet()
-                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        },
-                        contentPadding = PaddingValues(horizontal = 16.dp) // ← less padding
-                    ) {
-                        Text(
-                            text = state.getProfile()?.name?.replace("(preview)", "")
-                                ?: "Select a model",
-                        )
-                    }
+                OutlinedButton(
+                    onClick = {
+                        state.openModelBottomSheet()
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    },
+                    contentPadding = PaddingValues(horizontal = 16.dp)
+                ) {
+                    Text(
+                        text = state.getProfile()?.name?.replace("(preview)", "")
+                            ?: "Select a model",
+                    )
                 }
                 FilledIconButton(
                     onClick = {
