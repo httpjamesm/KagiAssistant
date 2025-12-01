@@ -30,6 +30,8 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import space.httpjames.kagiassistantmaterial.ui.landing.LandingScreen
 import space.httpjames.kagiassistantmaterial.ui.main.MainScreen
 import space.httpjames.kagiassistantmaterial.ui.overlay.AssistantOverlayScreen
@@ -109,13 +111,8 @@ class MainActivity : ComponentActivity() {
 }
 
 class KagiAssistantService : VoiceInteractionService() {
-    override fun onPrepareToShowSession(args: Bundle, flags: Int) {
-        println("onPrepareToShowSession()")
-        // Do NOT call showSession here. Just prepare internal state if needed.
-    }
-
-    override fun onLaunchVoiceAssistFromKeyguard() {
-        println("onLaunchVoiceAssistFromKeyguard()")
+    override fun showSession(args: Bundle, flags: Int) {
+        this.showSession(args, flags)
     }
 }
 
@@ -127,12 +124,17 @@ class KagiAssistantSession(context: Context) : VoiceInteractionSession(context),
     // 2. Initialize the Registries
     private val lifecycleRegistry = LifecycleRegistry(this)
     private val savedStateRegistryController = SavedStateRegistryController.create(this)
+    private var isShowingAlready = false
 
     override val lifecycle: Lifecycle
         get() = lifecycleRegistry
 
     override val savedStateRegistry: SavedStateRegistry
         get() = savedStateRegistryController.savedStateRegistry
+
+
+    private val _reinvokeFlow = MutableSharedFlow<Bundle?>(extraBufferCapacity = 1)
+    val reinvokeFlow: SharedFlow<Bundle?> = _reinvokeFlow
 
     override fun onCreate() {
         super.onCreate()
@@ -144,6 +146,7 @@ class KagiAssistantSession(context: Context) : VoiceInteractionSession(context),
     override fun onCreateContentView(): View {
         val prefs = context.getSharedPreferences("assistant_prefs", Context.MODE_PRIVATE)
         val sessionToken = prefs.getString("session_token", null)
+        val flow = reinvokeFlow
 
         val composeView = ComposeView(context).apply {
             // 4. IMPORTANT: Attach the Lifecycle and Registry to the ViewTree
@@ -161,6 +164,7 @@ class KagiAssistantSession(context: Context) : VoiceInteractionSession(context),
                             val assistantClient = AssistantClient(sessionToken)
                             AssistantOverlayScreen(
                                 assistantClient = assistantClient,
+                                reinvokeFlow = flow,
                                 onDismiss = { finish() }
                             )
                         }
@@ -171,9 +175,18 @@ class KagiAssistantSession(context: Context) : VoiceInteractionSession(context),
         return composeView
     }
 
+
     // 5. Drive the Lifecycle events based on the Session events
     override fun onShow(args: Bundle?, showFlags: Int) {
         super.onShow(args, showFlags)
+
+        if (isShowingAlready) {
+            // Session was re-invoked while open
+            _reinvokeFlow.tryEmit(args)
+        } else {
+            isShowingAlready = true
+        }
+
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
     }
@@ -182,6 +195,7 @@ class KagiAssistantSession(context: Context) : VoiceInteractionSession(context),
         super.onHide()
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
+        isShowingAlready = false
     }
 
     override fun onDestroy() {
