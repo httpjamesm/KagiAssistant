@@ -1,5 +1,6 @@
 package space.httpjames.kagiassistantmaterial.ui.overlay
 
+import android.os.Bundle
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -16,11 +17,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.FilledIconButton
@@ -31,15 +32,22 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.flow.SharedFlow
 import space.httpjames.kagiassistantmaterial.AssistantClient
 import space.httpjames.kagiassistantmaterial.ui.chat.HtmlCard
 import space.httpjames.kagiassistantmaterial.ui.chat.HtmlPreprocessor
@@ -47,6 +55,7 @@ import space.httpjames.kagiassistantmaterial.ui.chat.HtmlPreprocessor
 @Composable
 fun AssistantOverlayScreen(
     assistantClient: AssistantClient,
+    reinvokeFlow: SharedFlow<Bundle?>,
     onDismiss: () -> Unit
 ) {
     val infiniteTransition = rememberInfiniteTransition()
@@ -64,7 +73,16 @@ fun AssistantOverlayScreen(
     val coroutineScope = rememberCoroutineScope()
     val state = rememberAssistantOverlayState(assistantClient, context, coroutineScope)
 
+    var lines by rememberSaveable { mutableIntStateOf(1) }
+
     DisposableEffect(Unit) { onDispose { state.destroy() } }
+
+    LaunchedEffect(Unit) {
+        reinvokeFlow.collect { args ->
+            println("Assistant was re-invoked while open")
+            state.restartFlow()
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -82,8 +100,8 @@ fun AssistantOverlayScreen(
                 .fillMaxWidth()
                 .padding(start = 12.dp, end = 12.dp, bottom = 36.dp),
             color = MaterialTheme.colorScheme.background,
-            shape = if (state.assistantMessage.isBlank()) RoundedCornerShape(percent = 50)
-            else RoundedCornerShape(24.dp)
+            shape = if (state.assistantMessage.isBlank() && lines == 1) RoundedCornerShape(percent = 50)
+            else RoundedCornerShape(16.dp)
         ) {
             Column {
                 if (state.assistantMessage.isNotBlank()) {
@@ -100,6 +118,7 @@ fun AssistantOverlayScreen(
                     }
                 }
 
+
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
@@ -112,7 +131,9 @@ fun AssistantOverlayScreen(
                         )
                         .background(
                             MaterialTheme.colorScheme.surfaceContainerHighest,
-                            RoundedCornerShape(percent = 50)
+                            if (lines == 1) RoundedCornerShape(percent = 50) else RoundedCornerShape(
+                                16.dp
+                            )
                         )
                 ) {
                     Row(
@@ -120,7 +141,7 @@ fun AssistantOverlayScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 8.dp)
+                            .padding(horizontal = 12.dp)
                     ) {
                         BasicTextField(
                             value = state.text,
@@ -129,10 +150,17 @@ fun AssistantOverlayScreen(
                                 fontSize = 16.sp,
                                 color = MaterialTheme.colorScheme.onSurface
                             ),
+                            onTextLayout = { textLayoutResult ->
+                                lines = textLayoutResult.lineCount
+                            },
+                            maxLines = Int.MAX_VALUE,
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Text,
+                                imeAction = ImeAction.None
+                            ),
                             modifier = Modifier
                                 .weight(0.8f, fill = false)
-                                .height(64.dp)
-                                .background(color = Color.Transparent)
+                                .background(Color.Transparent)
                                 .padding(horizontal = 16.dp, vertical = 12.dp),
                             decorationBox = { innerTextField ->
                                 Box(contentAlignment = Alignment.CenterStart) {

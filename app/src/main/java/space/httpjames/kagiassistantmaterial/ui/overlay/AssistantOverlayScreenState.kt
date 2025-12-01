@@ -51,6 +51,11 @@ class AssistantOverlayState(
             Manifest.permission.RECORD_AUDIO
         ) == PackageManager.PERMISSION_GRANTED
 
+    var currentThreadId by mutableStateOf<String?>(null)
+        private set
+    var lastAssistantMessageId by mutableStateOf<String?>(null)
+        private set
+
     private val ttsManager = TtsManager(context)
 
     /* internal helpers */
@@ -70,8 +75,8 @@ class AssistantOverlayState(
             userMessage = text
             coroutineScope.launch {
                 val focus = KagiPromptRequestFocus(
-                    null,
-                    null,
+                    currentThreadId,
+                    lastAssistantMessageId,
                     userMessage.trim(),
                     null,
                 )
@@ -98,6 +103,12 @@ class AssistantOverlayState(
 
                 fun onChunk(chunk: StreamChunk) {
                     when (chunk.header) {
+                        "thread.json" -> {
+                            val json = Json.parseToJsonElement(chunk.data)
+                            val id = json.jsonObject["id"]?.jsonPrimitive?.contentOrNull
+                            if (id != null) currentThreadId = id
+                        }
+
                         "tokens.json" -> {
                             val json = Json.parseToJsonElement(chunk.data)
                             val obj = json.jsonObject
@@ -113,6 +124,8 @@ class AssistantOverlayState(
                             if (dto.md != null) {
                                 ttsManager.speak(text = stripMarkdown(dto.md))
                             }
+
+                            lastAssistantMessageId = dto.id
                         }
                     }
                 }
@@ -160,6 +173,11 @@ class AssistantOverlayState(
 
     init {
         speechRecognizer.setRecognitionListener(listener)
+        if (permissionOk) speechRecognizer.startListening(intent)
+    }
+
+    fun restartFlow() {
+        text = ""
         if (permissionOk) speechRecognizer.startListening(intent)
     }
 
