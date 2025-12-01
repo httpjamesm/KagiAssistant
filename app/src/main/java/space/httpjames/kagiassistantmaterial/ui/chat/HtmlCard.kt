@@ -24,19 +24,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 
-private const val MIN_WEBVIEW_HEIGHT = 0
 
 @Composable
 fun HtmlCard(
     html: String,
     modifier: Modifier = Modifier,
-    minHeight: Int = MIN_WEBVIEW_HEIGHT,
+    minHeight: Dp = 60.dp,
     onHeightMeasured: (() -> Unit)? = null,
 ) {
-    var heightState by remember { mutableIntStateOf(minHeight) }
+    var heightState by remember { mutableIntStateOf(0) }
 
     val context = LocalContext.current
 
@@ -58,7 +58,7 @@ fun HtmlCard(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 60.dp)
+                .heightIn(min = minHeight)
                 .height(animatedHeight),
             contentAlignment = Alignment.Center,
         ) {
@@ -71,7 +71,7 @@ fun HtmlCard(
 
                         addJavascriptInterface(
                             HtmlViewerJavaScriptInterface(
-                                expectedMin = minHeight,
+                                expectedMin = 0,
                                 onHeightMeasured = { h ->
                                     heightState = h
                                     onHeightMeasured?.invoke()
