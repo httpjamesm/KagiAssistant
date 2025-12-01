@@ -66,6 +66,12 @@ class AssistantOverlayState(
     var assistantDone by mutableStateOf(true)
         private set
 
+    var isSpeaking by mutableStateOf(false)
+        private set
+
+    var assistantMessageMd by mutableStateOf("")
+        private set
+
 
     private val ttsManager = TtsManager(context)
 
@@ -158,6 +164,7 @@ class AssistantOverlayState(
             val jsonAdapter = moshi.adapter(KagiPromptRequest::class.java)
             val jsonString = jsonAdapter.toJson(requestBody)
 
+            assistantMessageMd = ""
 
             fun onChunk(chunk: StreamChunk) {
                 if (chunk.done) {
@@ -184,7 +191,9 @@ class AssistantOverlayState(
                         assistantMessage = dto.reply
 
                         if (dto.md != null) {
-                            ttsManager.speak(text = stripMarkdown(dto.md))
+                            assistantMessageMd = dto.md
+                            ttsManager.speak(text = stripMarkdown(assistantMessageMd))
+                            isSpeaking = true
                             isWaitingForMessageFirstToken = false
                             assistantDone = true
                         }
@@ -229,7 +238,18 @@ class AssistantOverlayState(
         speechRecognizer.stopListening()
     }
 
+    fun restartSpeaking() {
+        ttsManager.speak(stripMarkdown(assistantMessageMd))
+        isSpeaking = true
+    }
+
+    fun stopSpeaking() {
+        ttsManager.stop()
+        isSpeaking = false
+    }
+
     fun destroy() {
+        isSpeaking = false
         speechRecognizer.stopListening()
         speechRecognizer.destroy()
         ttsManager.release()
