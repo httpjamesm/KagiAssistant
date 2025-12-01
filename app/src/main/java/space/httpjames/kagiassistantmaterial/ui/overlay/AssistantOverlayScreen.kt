@@ -64,7 +64,9 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.android.awaitFrame
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.launch
 import space.httpjames.kagiassistantmaterial.AssistantClient
 import space.httpjames.kagiassistantmaterial.MainActivity
 import space.httpjames.kagiassistantmaterial.R
@@ -101,7 +103,6 @@ fun AssistantOverlayScreen(
 
     LaunchedEffect(Unit) {
         reinvokeFlow.collect { args ->
-            println("Assistant was re-invoked while open")
             state.restartFlow()
             localFocusContext.clearFocus()
         }
@@ -252,16 +253,20 @@ fun AssistantOverlayScreen(
 
                         IconButton(
                             onClick = {
-                                localFocusContext.clearFocus()
-                                state.saveText()
-                                context.startActivity(
-                                    Intent(context, MainActivity::class.java).apply {
-                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                                                Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                                                Intent.FLAG_ACTIVITY_SINGLE_TOP
-                                    }
-                                )
-                                onDismiss()
+                                coroutineScope.launch {
+                                    localFocusContext.clearFocus()
+                                    state.saveThreadId()
+                                    state.saveText()
+                                    awaitFrame()
+                                    context.startActivity(
+                                        Intent(context, MainActivity::class.java).apply {
+                                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                                                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                                                    Intent.FLAG_ACTIVITY_SINGLE_TOP
+                                        }
+                                    )
+                                    onDismiss()
+                                }
                             },
                             modifier = Modifier
                                 .padding(8.dp)

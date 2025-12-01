@@ -115,6 +115,11 @@ class AssistantOverlayState(
         prefs.edit().putString("savedText", text).apply()
     }
 
+    fun saveThreadId() {
+        println("saving thread id $currentThreadId")
+        prefs.edit().putString("savedThreadId", currentThreadId).apply()
+    }
+
     fun onTextChanged(newText: String) {
         text = newText
     }

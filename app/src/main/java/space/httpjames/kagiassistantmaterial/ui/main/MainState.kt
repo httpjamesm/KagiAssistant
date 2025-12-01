@@ -1,5 +1,7 @@
 package space.httpjames.kagiassistantmaterial.ui.main
 
+import android.content.Context
+import android.content.SharedPreferences
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.compose.material3.DrawerState
@@ -36,12 +38,17 @@ import kotlin.io.encoding.ExperimentalEncodingApi
 fun rememberMainState(
     assistantClient: AssistantClient,
     drawerState: DrawerState = rememberDrawerState(initialValue = DrawerValue.Closed),
-    coroutineScope: CoroutineScope = rememberCoroutineScope()
-): MainState = remember(assistantClient, drawerState, coroutineScope) {
-    MainState(assistantClient, drawerState, coroutineScope)
+    coroutineScope: CoroutineScope = rememberCoroutineScope(),
+    context: Context,
+): MainState {
+    val prefs = context.getSharedPreferences("assistant_prefs", Context.MODE_PRIVATE)
+    return remember(assistantClient, drawerState, coroutineScope, prefs) {
+        MainState(prefs, assistantClient, drawerState, coroutineScope)
+    }
 }
 
 class MainState(
+    private val prefs: SharedPreferences,
     private val assistantClient: AssistantClient,
     val drawerState: DrawerState,
     val coroutineScope: CoroutineScope
@@ -83,6 +90,13 @@ class MainState(
         }
     }
 
+    fun restoreThread() {
+        val savedId = prefs.getString("savedThreadId", null)
+        if (savedId != null && savedId != currentThreadId) {
+            onThreadSelected(savedId)
+        }
+    }
+
     fun _setEditingMessageId(id: String?) {
         editingMessageId = id
     }
@@ -112,6 +126,7 @@ class MainState(
         currentThreadId = null
         currentThreadTitle = null
         threadMessages = emptyList()
+        prefs.edit().remove("savedThreadId").apply()
         coroutineScope.launch {
             drawerState.close()
         }
@@ -124,6 +139,7 @@ class MainState(
     fun onThreadSelected(threadId: String) {
         currentThreadId = threadId
         currentThreadTitle = null
+        prefs.edit().putString("savedThreadId", threadId).apply()
         coroutineScope.launch {
             try {
                 threadMessagesCallState = DataFetchingState.FETCHING
