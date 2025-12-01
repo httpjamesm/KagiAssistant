@@ -3,64 +3,20 @@ package space.httpjames.kagiassistantmaterial
 import android.Manifest
 import android.R
 import android.content.Context
-import android.content.Intent
-import android.content.pm.PackageManager
 import android.os.Bundle
 import android.service.voice.VoiceInteractionService
 import android.service.voice.VoiceInteractionSession
 import android.service.voice.VoiceInteractionSessionService
-import android.speech.RecognitionListener
-import android.speech.RecognizerIntent
-import android.speech.SpeechRecognizer
 import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material3.FilledIconButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.LocalTextStyle
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.Lifecycle
@@ -76,6 +32,7 @@ import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import space.httpjames.kagiassistantmaterial.ui.landing.LandingScreen
 import space.httpjames.kagiassistantmaterial.ui.main.MainScreen
+import space.httpjames.kagiassistantmaterial.ui.overlay.AssistantOverlayScreen
 import space.httpjames.kagiassistantmaterial.ui.settings.SettingsScreen
 import space.httpjames.kagiassistantmaterial.ui.theme.KagiAssistantTheme
 
@@ -239,201 +196,3 @@ class KagiAssistantIService : VoiceInteractionSessionService() {
     }
 }
 
-@Composable
-fun AssistantOverlayScreen(
-    assistantClient: AssistantClient,
-    onDismiss: () -> Unit
-) {
-    val context = LocalContext.current
-    var text by remember { mutableStateOf("") }
-
-    // 1. Check permission the old-school way
-    val permissionOk = remember {
-        ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.RECORD_AUDIO
-        ) == PackageManager.PERMISSION_GRANTED
-    }
-
-    val speechRecognizer = remember { SpeechRecognizer.createSpeechRecognizer(context) }
-
-    var isListening by remember { mutableStateOf(false) }
-
-
-    val listener = remember {
-        object : RecognitionListener {
-            override fun onResults(b: Bundle?) {
-                text = b?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                    ?.firstOrNull() ?: ""
-            }
-
-            override fun onPartialResults(b: Bundle?) {
-                text = b?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                    ?.firstOrNull() ?: text
-            }
-
-            override fun onError(e: Int) {
-                val msg = when (e) {
-                    SpeechRecognizer.ERROR_AUDIO -> "Audio error"
-                    SpeechRecognizer.ERROR_CLIENT -> "Client side error"
-                    SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Missing RECORD_AUDIO"
-                    SpeechRecognizer.ERROR_NETWORK -> "Network error"
-                    SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "Network timeout"
-                    SpeechRecognizer.ERROR_NO_MATCH -> "No speech match"
-                    SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "RecognitionService busy"
-                    SpeechRecognizer.ERROR_SERVER -> "Server error"
-                    SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "No speech input"
-                    else -> "Unknown ($e)"
-                }
-                print("onError: $msg")
-                isListening = false
-            }
-
-            override fun onReadyForSpeech(b: Bundle?) {
-                isListening = true
-            }
-
-            override fun onBeginningOfSpeech() {}
-            override fun onRmsChanged(db: Float) {}
-            override fun onBufferReceived(b: ByteArray?) {}
-            override fun onEndOfSpeech() {
-                println("end of speech detected")
-                isListening = false
-            }
-
-            override fun onEvent(e: Int, b: Bundle?) {}
-        }
-    }
-
-    DisposableEffect(Unit) {
-        speechRecognizer.setRecognitionListener(listener)
-        onDispose {
-            speechRecognizer.stopListening()
-            speechRecognizer.destroy()
-        }
-    }
-
-    val intent = remember {
-        Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(
-                RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
-            )
-            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-        }
-    }
-
-    // 2. Start listening immediately if we have permission
-    LaunchedEffect(permissionOk) {
-        if (permissionOk) speechRecognizer.startListening(intent)
-    }
-
-    val interactionSource = remember { MutableInteractionSource() }
-
-
-    val infiniteTransition = rememberInfiniteTransition()
-    val col = MaterialTheme.colorScheme.primary
-    val borderAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.75f,
-        targetValue = 0.15f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1500, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        )
-    )
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.7f))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onDismiss
-            ),
-        contentAlignment = Alignment.BottomEnd,
-    ) {
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 12.dp, end = 12.dp, bottom = 36.dp)
-                .height(84.dp),
-            color = MaterialTheme.colorScheme.background,
-            shape = RoundedCornerShape(percent = 50)
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-                modifier = Modifier
-                    .padding(12.dp)
-                    .background(
-                        MaterialTheme.colorScheme.surfaceContainerHighest,
-                        RoundedCornerShape(percent = 50)
-                    ),
-            ) {
-                Row(
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp)
-                ) {
-                    BasicTextField(
-                        value = text,
-                        onValueChange = { text = it },
-                        textStyle = LocalTextStyle.current.copy(
-                            fontSize = 16.sp,
-                            color = MaterialTheme.colorScheme.onSurface
-                        ),
-                        modifier = Modifier
-                            .weight(0.8f, fill = false)
-                            .height(64.dp)
-                            .background(
-                                color = Color.Transparent,
-                            )
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        decorationBox = { innerTextField ->
-                            Box(contentAlignment = Alignment.CenterStart) { innerTextField() }
-                        }
-                    )
-
-//                    Box(
-//                        modifier = Modifier
-//                            .clip(CircleShape)
-//                            .drawWithContent {
-//                                drawContent()
-//                                drawRoundRect(
-//                                    color = col.copy(alpha = borderAlpha),
-//                                    size = size,
-//                                    cornerRadius = CornerRadius(x = 16.dp.toPx(), y = 16.dp.toPx()),
-//                                    style = Stroke(width = 4.dp.toPx())
-//                                )
-//                            }
-//                    ) {
-                    FilledIconButton(
-                        onClick = { /* ... */ },
-                        modifier = Modifier
-                            .border(
-                                width = 4.dp,
-                                if (isListening) col.copy(alpha = borderAlpha) else Color.Transparent,
-                                CircleShape,
-                            ),
-                        enabled = text.isNotBlank(),
-                        interactionSource = interactionSource,
-                        colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = Color.Transparent,
-                            contentColor = MaterialTheme.colorScheme.onSurface
-                        )
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Mic,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-//                    }
-                }
-            }
-        }
-    }
-}
