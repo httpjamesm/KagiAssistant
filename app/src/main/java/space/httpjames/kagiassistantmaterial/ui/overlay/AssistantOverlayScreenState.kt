@@ -29,6 +29,7 @@ import space.httpjames.kagiassistantmaterial.KagiPromptRequestThreads
 import space.httpjames.kagiassistantmaterial.MessageDto
 import space.httpjames.kagiassistantmaterial.StreamChunk
 import space.httpjames.kagiassistantmaterial.ui.message.toObject
+import space.httpjames.kagiassistantmaterial.utils.TtsManager
 
 class AssistantOverlayState(
     private val context: Context,
@@ -49,6 +50,8 @@ class AssistantOverlayState(
             context,
             Manifest.permission.RECORD_AUDIO
         ) == PackageManager.PERMISSION_GRANTED
+
+    private val ttsManager = TtsManager(context)
 
     /* internal helpers */
     private val speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
@@ -76,7 +79,7 @@ class AssistantOverlayState(
                 val requestBody = KagiPromptRequest(
                     focus,
                     KagiPromptRequestProfile(
-                        null,
+                        "b4afa927-045a-423a-bfea-c9beac186134",
                         false,
                         null,
                         "gemini-2-5-flash-lite",
@@ -99,7 +102,6 @@ class AssistantOverlayState(
                             val json = Json.parseToJsonElement(chunk.data)
                             val obj = json.jsonObject
                             val newText = obj["text"]?.jsonPrimitive?.contentOrNull ?: ""
-//                            val incomingId = obj["id"]?.jsonPrimitive?.contentOrNull ?: ""
 
                             assistantMessage = newText
                         }
@@ -107,6 +109,10 @@ class AssistantOverlayState(
                         "new_message.json" -> {
                             val dto = Json.parseToJsonElement(chunk.data).toObject<MessageDto>()
                             assistantMessage = dto.reply
+
+                            if (dto.md != null) {
+                                ttsManager.speak(text = stripMarkdown(dto.md))
+                            }
                         }
                     }
                 }
@@ -160,6 +166,7 @@ class AssistantOverlayState(
     fun destroy() {
         speechRecognizer.stopListening()
         speechRecognizer.destroy()
+        ttsManager.release()
     }
 }
 
@@ -172,3 +179,6 @@ fun rememberAssistantOverlayState(
 ): AssistantOverlayState = remember(assistantClient, context) {
     AssistantOverlayState(context, assistantClient, coroutineScope)
 }
+
+fun stripMarkdown(input: String): String =
+    input.replace(Regex("""[*_`~#\[\]()|>]+"""), "")
