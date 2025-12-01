@@ -6,8 +6,6 @@ import android.content.pm.PackageManager
 import android.provider.Settings
 import android.service.voice.VoiceInteractionService
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Assistant
@@ -100,8 +99,8 @@ fun SettingsScreen(
         Column(
             modifier = Modifier
                 .padding(innerPadding)
-                .fillMaxWidth()
-                .scrollable(scrollState, Orientation.Vertical),
+                .fillMaxSize()
+                .verticalScroll(scrollState),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
