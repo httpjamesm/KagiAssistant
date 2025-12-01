@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Stars
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -67,6 +68,7 @@ fun SettingsScreen(
         context.packageName,
         0
     )
+
 
     LaunchedEffect(Unit) {
         state.runInit()
@@ -170,6 +172,17 @@ fun SettingsScreen(
                     }
                 )
                 SettingsItem(
+                    icon = Icons.Default.Mic,
+                    title = "Assistant model",
+                    subtitle = "Using ${state.selectedAssistantModelName ?: "..."}",
+                    pos = SettingsItemPosition.MIDDLE,
+                    iconBackgroundColor = MaterialTheme.colorScheme.primaryContainer,
+                    iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    onClick = {
+                        state.showAssistantModelChooser()
+                    }
+                )
+                SettingsItem(
                     icon = Icons.Default.Keyboard,
                     title = "Auto keyboard",
                     subtitle = "Always focus the message bar",
@@ -258,5 +271,16 @@ fun SettingsScreen(
                 )
             }
         }
+    }
+
+    if (state.showAssistantModelChooserModal) {
+        AssistantModelChooserModal(
+            profiles = state.profiles,
+            onDismiss = { state.hideAssistantModelChooser() },
+            onModelSelected = {
+                state.saveAssistantModel(it)
+            },
+            selectedKey = state.selectedAssistantModel
+        )
     }
 }
