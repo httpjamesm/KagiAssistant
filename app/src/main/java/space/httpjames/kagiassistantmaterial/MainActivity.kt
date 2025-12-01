@@ -17,7 +17,14 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -28,12 +35,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -248,6 +257,8 @@ fun AssistantOverlayScreen(
 
     val speechRecognizer = remember { SpeechRecognizer.createSpeechRecognizer(context) }
 
+    var isListening by remember { mutableStateOf(false) }
+
 
     val listener = remember {
         object : RecognitionListener {
@@ -275,14 +286,19 @@ fun AssistantOverlayScreen(
                     else -> "Unknown ($e)"
                 }
                 print("onError: $msg")
+                isListening = false
             }
 
-            override fun onReadyForSpeech(b: Bundle?) {}
+            override fun onReadyForSpeech(b: Bundle?) {
+                isListening = true
+            }
+
             override fun onBeginningOfSpeech() {}
             override fun onRmsChanged(db: Float) {}
             override fun onBufferReceived(b: ByteArray?) {}
             override fun onEndOfSpeech() {
                 println("end of speech detected")
+                isListening = false
             }
 
             override fun onEvent(e: Int, b: Bundle?) {}
@@ -311,6 +327,20 @@ fun AssistantOverlayScreen(
     LaunchedEffect(permissionOk) {
         if (permissionOk) speechRecognizer.startListening(intent)
     }
+
+    val interactionSource = remember { MutableInteractionSource() }
+
+
+    val infiniteTransition = rememberInfiniteTransition()
+    val col = MaterialTheme.colorScheme.primary
+    val borderAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.75f,
+        targetValue = 0.15f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1500, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        )
+    )
 
     Box(
         modifier = Modifier
@@ -344,7 +374,9 @@ fun AssistantOverlayScreen(
                 Row(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp)
                 ) {
                     BasicTextField(
                         value = text,
@@ -354,7 +386,6 @@ fun AssistantOverlayScreen(
                             color = MaterialTheme.colorScheme.onSurface
                         ),
                         modifier = Modifier
-//                            .fillMaxWidth()
                             .weight(0.8f, fill = false)
                             .height(64.dp)
                             .background(
@@ -366,13 +397,41 @@ fun AssistantOverlayScreen(
                         }
                     )
 
-                    IconButton(onClick = {}) {
+//                    Box(
+//                        modifier = Modifier
+//                            .clip(CircleShape)
+//                            .drawWithContent {
+//                                drawContent()
+//                                drawRoundRect(
+//                                    color = col.copy(alpha = borderAlpha),
+//                                    size = size,
+//                                    cornerRadius = CornerRadius(x = 16.dp.toPx(), y = 16.dp.toPx()),
+//                                    style = Stroke(width = 4.dp.toPx())
+//                                )
+//                            }
+//                    ) {
+                    FilledIconButton(
+                        onClick = { /* ... */ },
+                        modifier = Modifier
+                            .border(
+                                width = 4.dp,
+                                if (isListening) col.copy(alpha = borderAlpha) else Color.Transparent,
+                                CircleShape,
+                            ),
+                        enabled = text.isNotBlank(),
+                        interactionSource = interactionSource,
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = Color.Transparent,
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        )
+                    ) {
                         Icon(
-                            imageVector = Icons.Default.Send,
+                            imageVector = Icons.Default.Mic,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
+//                    }
                 }
             }
         }
