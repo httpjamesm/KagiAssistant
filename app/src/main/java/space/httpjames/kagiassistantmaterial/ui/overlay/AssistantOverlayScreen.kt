@@ -349,8 +349,6 @@ fun AssistantOverlayScreen(
                                     state.sendMessage()
                                     localFocusContext.clearFocus()
                                     state.onTextChanged("")
-                                    // might be controversial here, but this makes sense to me because the user has enabled typing mode, so they should revert to the normal behaviour of having cleared text.
-                                    // in a voice context, we might be more inclined to rely on the state remaining, and it'll get auto cleared on next invocation.
                                 }
                             },
                             modifier = Modifier
