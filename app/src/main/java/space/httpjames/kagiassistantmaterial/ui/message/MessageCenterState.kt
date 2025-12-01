@@ -245,7 +245,6 @@ class MessageCenterState(
 
             // branch lineage is determined as: last message ID's branch ID
             val branchId = localMessages.takeLast(1).firstOrNull()?.branchIds?.lastOrNull()
-            println("branch id: $branchId")
 
             val focus = KagiPromptRequestFocus(
                 threadId,
@@ -254,7 +253,7 @@ class MessageCenterState(
                 branchId,
             )
 
-            setText("")
+            onTextChanged("")
 
             try {
                 if (profiles.isEmpty()) {
