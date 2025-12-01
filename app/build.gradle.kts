@@ -63,6 +63,7 @@ dependencies {
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7") // or your current version
     implementation("androidx.savedstate:savedstate-ktx:1.2.1")
+    implementation("com.google.mlkit:language-id:17.0.5")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
