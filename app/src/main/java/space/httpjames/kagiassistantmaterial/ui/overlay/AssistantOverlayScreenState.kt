@@ -136,6 +136,7 @@ class AssistantOverlayState(
 
     fun sendMessage() {
         userMessage = text
+        onTextChanged("")
         coroutineScope.launch {
             val focus = KagiPromptRequestFocus(
                 currentThreadId,
