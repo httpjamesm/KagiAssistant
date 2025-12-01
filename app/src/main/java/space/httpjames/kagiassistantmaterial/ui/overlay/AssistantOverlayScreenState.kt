@@ -29,6 +29,7 @@ import space.httpjames.kagiassistantmaterial.KagiPromptRequestProfile
 import space.httpjames.kagiassistantmaterial.KagiPromptRequestThreads
 import space.httpjames.kagiassistantmaterial.MessageDto
 import space.httpjames.kagiassistantmaterial.StreamChunk
+import space.httpjames.kagiassistantmaterial.ui.message.AssistantProfile
 import space.httpjames.kagiassistantmaterial.ui.message.toObject
 import space.httpjames.kagiassistantmaterial.utils.TtsManager
 
@@ -70,6 +71,9 @@ class AssistantOverlayState(
         private set
 
     var assistantMessageMd by mutableStateOf("")
+        private set
+
+    var profiles by mutableStateOf<List<AssistantProfile>>(emptyList())
         private set
 
 
@@ -145,13 +149,23 @@ class AssistantOverlayState(
                 null,
             )
 
+            val selectedAssistantModelKey =
+                prefs.getString("assistant_model", "gemini-2-5-flash-lite")
+
+            val profile = profiles.firstOrNull { it.key == selectedAssistantModelKey }
+
+            if (profile == null) {
+                assistantMessage = "Sorry, please try again later."
+                return@launch
+            }
+
             val requestBody = KagiPromptRequest(
                 focus,
                 KagiPromptRequestProfile(
-                    "b4afa927-045a-423a-bfea-c9beac186134",
+                    profile.key,
                     false,
                     null,
-                    "gemini-2-5-flash-lite",
+                    profile.model,
                     false,
                 ),
                 listOf(
@@ -193,8 +207,11 @@ class AssistantOverlayState(
 
                         if (dto.md != null) {
                             assistantMessageMd = dto.md
-                            ttsManager.speak(text = stripMarkdown(assistantMessageMd))
-                            isSpeaking = true
+                            val autoSpeakReplies = prefs.getBoolean("auto_speak_replies", true)
+                            if (autoSpeakReplies) {
+                                ttsManager.speak(text = stripMarkdown(assistantMessageMd))
+                                isSpeaking = true
+                            }
                             isWaitingForMessageFirstToken = false
                             assistantDone = true
                         }
@@ -228,6 +245,14 @@ class AssistantOverlayState(
     init {
         speechRecognizer.setRecognitionListener(listener)
         if (permissionOk) speechRecognizer.startListening(intent)
+        coroutineScope.launch {
+            try {
+                profiles = assistantClient.getProfiles()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+
+        }
     }
 
     fun restartFlow() {

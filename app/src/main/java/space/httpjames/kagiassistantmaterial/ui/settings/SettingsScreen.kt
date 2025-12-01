@@ -20,9 +20,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Assistant
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Logout
-import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.PhoneInTalk
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Stars
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -172,7 +173,7 @@ fun SettingsScreen(
                     }
                 )
                 SettingsItem(
-                    icon = Icons.Default.Mic,
+                    icon = Icons.Default.Assistant,
                     title = "Assistant model",
                     subtitle = "Using ${state.selectedAssistantModelName ?: "..."}",
                     pos = SettingsItemPosition.MIDDLE,
@@ -183,10 +184,31 @@ fun SettingsScreen(
                     }
                 )
                 SettingsItem(
+                    icon = Icons.Default.PhoneInTalk,
+                    title = "Speak replies",
+                    subtitle = "Read aloud assistant replies",
+                    pos = SettingsItemPosition.BOTTOM,
+                    iconBackgroundColor = MaterialTheme.colorScheme.primaryContainer,
+                    iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    rightSide = {
+                        Switch(checked = state.autoSpeakReplies, onCheckedChange = {
+                            state.toggleAutoSpeakReplies()
+                        })
+                    }
+                )
+
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+            ) {
+                SettingsItem(
                     icon = Icons.Default.Keyboard,
                     title = "Auto keyboard",
                     subtitle = "Always focus the message bar",
-                    pos = SettingsItemPosition.BOTTOM,
+                    pos = SettingsItemPosition.SINGLE,
                     iconBackgroundColor = MaterialTheme.colorScheme.primaryContainer,
                     iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
                     rightSide = {

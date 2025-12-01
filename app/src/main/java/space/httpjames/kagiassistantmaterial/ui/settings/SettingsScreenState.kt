@@ -34,6 +34,13 @@ class SettingsScreenState(
     var emailAddressCallState by mutableStateOf<DataFetchingState>(DataFetchingState.FETCHING)
         private set
 
+    var autoSpeakReplies by mutableStateOf(
+        prefs.getBoolean(
+            "auto_speak_replies",
+            true
+        )
+    )
+    
     var openKeyboardAutomatically by mutableStateOf(
         prefs.getBoolean(
             "open_keyboard_automatically",
@@ -71,6 +78,11 @@ class SettingsScreenState(
     fun toggleOpenKeyboardAutomatically() {
         openKeyboardAutomatically = !openKeyboardAutomatically
         prefs.edit().putBoolean("open_keyboard_automatically", openKeyboardAutomatically).apply()
+    }
+
+    fun toggleAutoSpeakReplies() {
+        autoSpeakReplies = !autoSpeakReplies
+        prefs.edit().putBoolean("auto_speak_replies", autoSpeakReplies).apply()
     }
 
     fun clearAllPrefs() {
