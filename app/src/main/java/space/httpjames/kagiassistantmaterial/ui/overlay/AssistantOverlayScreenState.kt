@@ -3,6 +3,7 @@ package space.httpjames.kagiassistantmaterial.ui.overlay
 import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.speech.RecognitionListener
@@ -32,6 +33,7 @@ import space.httpjames.kagiassistantmaterial.ui.message.toObject
 import space.httpjames.kagiassistantmaterial.utils.TtsManager
 
 class AssistantOverlayState(
+    private val prefs: SharedPreferences,
     private val context: Context,
     private val assistantClient: AssistantClient,
     private val coroutineScope: CoroutineScope
@@ -40,6 +42,8 @@ class AssistantOverlayState(
     var text by mutableStateOf("")
         private set
     var userMessage by mutableStateOf("")
+        private set
+    var isWaitingForMessageFirstToken by mutableStateOf(false)
         private set
     var assistantMessage by mutableStateOf("")
         private set
@@ -56,6 +60,13 @@ class AssistantOverlayState(
     var lastAssistantMessageId by mutableStateOf<String?>(null)
         private set
 
+    var isTypingMode by mutableStateOf(false)
+        private set
+
+    var assistantDone by mutableStateOf(true)
+        private set
+
+
     private val ttsManager = TtsManager(context)
 
     /* internal helpers */
@@ -67,84 +78,13 @@ class AssistantOverlayState(
         )
         putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
     }
+
     private val listener = object : RecognitionListener {
         override fun onResults(b: Bundle?) {
             text = b?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 ?.firstOrNull() ?: ""
 
-            userMessage = text
-            coroutineScope.launch {
-                val focus = KagiPromptRequestFocus(
-                    currentThreadId,
-                    lastAssistantMessageId,
-                    userMessage.trim(),
-                    null,
-                )
-
-                val requestBody = KagiPromptRequest(
-                    focus,
-                    KagiPromptRequestProfile(
-                        "b4afa927-045a-423a-bfea-c9beac186134",
-                        false,
-                        null,
-                        "gemini-2-5-flash-lite",
-                        false,
-                    ),
-                    listOf(
-                        KagiPromptRequestThreads(listOf(), true, false)
-                    )
-                )
-
-                val moshi = Moshi.Builder()
-                    .add(com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory())
-                    .build()
-                val jsonAdapter = moshi.adapter(KagiPromptRequest::class.java)
-                val jsonString = jsonAdapter.toJson(requestBody)
-
-                fun onChunk(chunk: StreamChunk) {
-                    when (chunk.header) {
-                        "thread.json" -> {
-                            val json = Json.parseToJsonElement(chunk.data)
-                            val id = json.jsonObject["id"]?.jsonPrimitive?.contentOrNull
-                            if (id != null) currentThreadId = id
-                        }
-
-                        "tokens.json" -> {
-                            val json = Json.parseToJsonElement(chunk.data)
-                            val obj = json.jsonObject
-                            val newText = obj["text"]?.jsonPrimitive?.contentOrNull ?: ""
-
-                            assistantMessage = newText
-                        }
-
-                        "new_message.json" -> {
-                            val dto = Json.parseToJsonElement(chunk.data).toObject<MessageDto>()
-                            assistantMessage = dto.reply
-
-                            if (dto.md != null) {
-                                ttsManager.speak(text = stripMarkdown(dto.md))
-                            }
-
-                            lastAssistantMessageId = dto.id
-                        }
-                    }
-                }
-
-                try {
-                    assistantClient.fetchStream(
-                        streamId = "overlay.id",
-                        url = "https://kagi.com/assistant/prompt",
-                        method = "POST",
-                        body = jsonString,
-                        extraHeaders = mapOf("Content-Type" to "application/json"),
-                        onChunk = { chunk -> onChunk(chunk) }
-                    )
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-
-            }
-
+            sendMessage()
         }
 
         override fun onPartialResults(b: Bundle?) {
@@ -171,6 +111,105 @@ class AssistantOverlayState(
         override fun onEvent(e: Int, b: Bundle?) {}
     }
 
+    fun saveText() {
+        prefs.edit().putString("savedText", text).apply()
+    }
+
+    fun onTextChanged(newText: String) {
+        text = newText
+    }
+
+    fun _setIsTypingMode(isTyping: Boolean) {
+        isTypingMode = isTyping
+    }
+
+    fun sendMessage() {
+        userMessage = text
+        coroutineScope.launch {
+            val focus = KagiPromptRequestFocus(
+                currentThreadId,
+                lastAssistantMessageId,
+                userMessage.trim(),
+                null,
+            )
+
+            val requestBody = KagiPromptRequest(
+                focus,
+                KagiPromptRequestProfile(
+                    "b4afa927-045a-423a-bfea-c9beac186134",
+                    false,
+                    null,
+                    "gemini-2-5-flash-lite",
+                    false,
+                ),
+                listOf(
+                    KagiPromptRequestThreads(listOf(), true, false)
+                )
+            )
+
+            val moshi = Moshi.Builder()
+                .add(com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory())
+                .build()
+            val jsonAdapter = moshi.adapter(KagiPromptRequest::class.java)
+            val jsonString = jsonAdapter.toJson(requestBody)
+
+
+            fun onChunk(chunk: StreamChunk) {
+                if (chunk.done) {
+                    isWaitingForMessageFirstToken = false
+                }
+                when (chunk.header) {
+                    "thread.json" -> {
+                        val json = Json.parseToJsonElement(chunk.data)
+                        val id = json.jsonObject["id"]?.jsonPrimitive?.contentOrNull
+                        if (id != null) currentThreadId = id
+                    }
+
+                    "tokens.json" -> {
+                        val json = Json.parseToJsonElement(chunk.data)
+                        val obj = json.jsonObject
+                        val newText = obj["text"]?.jsonPrimitive?.contentOrNull ?: ""
+
+                        assistantMessage = newText
+                        isWaitingForMessageFirstToken = false
+                    }
+
+                    "new_message.json" -> {
+                        val dto = Json.parseToJsonElement(chunk.data).toObject<MessageDto>()
+                        assistantMessage = dto.reply
+
+                        if (dto.md != null) {
+                            ttsManager.speak(text = stripMarkdown(dto.md))
+                            isWaitingForMessageFirstToken = false
+                            assistantDone = true
+                        }
+
+                        lastAssistantMessageId = dto.id
+                    }
+                }
+            }
+
+            try {
+                isWaitingForMessageFirstToken = true
+                assistantDone = false
+                assistantClient.fetchStream(
+                    streamId = "overlay.id",
+                    url = "https://kagi.com/assistant/prompt",
+                    method = "POST",
+                    body = jsonString,
+                    extraHeaders = mapOf("Content-Type" to "application/json"),
+                    onChunk = { chunk -> onChunk(chunk) }
+                )
+            } catch (e: Exception) {
+                e.printStackTrace()
+                assistantDone = true
+                isWaitingForMessageFirstToken = false
+                assistantMessage = "Sorry, please try again later."
+            }
+
+        }
+    }
+
     init {
         speechRecognizer.setRecognitionListener(listener)
         if (permissionOk) speechRecognizer.startListening(intent)
@@ -179,6 +218,10 @@ class AssistantOverlayState(
     fun restartFlow() {
         text = ""
         if (permissionOk) speechRecognizer.startListening(intent)
+    }
+
+    fun stopListening() {
+        speechRecognizer.stopListening()
     }
 
     fun destroy() {
@@ -194,8 +237,12 @@ fun rememberAssistantOverlayState(
     assistantClient: AssistantClient,
     context: Context,
     coroutineScope: CoroutineScope
-): AssistantOverlayState = remember(assistantClient, context) {
-    AssistantOverlayState(context, assistantClient, coroutineScope)
+): AssistantOverlayState {
+    val prefs = context.getSharedPreferences("assistant_prefs", Context.MODE_PRIVATE)
+
+    return remember(assistantClient, context, prefs) {
+        AssistantOverlayState(prefs, context, assistantClient, coroutineScope)
+    }
 }
 
 fun stripMarkdown(input: String): String =
