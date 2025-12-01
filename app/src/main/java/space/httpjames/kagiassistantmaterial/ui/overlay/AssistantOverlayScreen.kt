@@ -380,7 +380,6 @@ fun AssistantOverlayScreen(
                                     )
                                     .padding(8.dp)
                                     .size(48.dp),
-                                enabled = state.text.isNotBlank(),
                                 colors = IconButtonDefaults.filledIconButtonColors(
                                     containerColor = if (state.isListening) Color.Transparent else MaterialTheme.colorScheme.primaryContainer,
                                     contentColor = if (state.isListening) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onPrimaryContainer
