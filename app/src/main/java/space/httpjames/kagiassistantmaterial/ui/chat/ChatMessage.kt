@@ -51,14 +51,12 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.google.accompanist.placeholder.PlaceholderHighlight
-import com.google.accompanist.placeholder.material3.placeholder
-import com.google.accompanist.placeholder.material3.shimmer
 import kotlinx.coroutines.launch
 import space.httpjames.kagiassistantmaterial.AssistantThreadMessageDocument
 import space.httpjames.kagiassistantmaterial.AssistantThreadMessageRole
 import space.httpjames.kagiassistantmaterial.Citation
 import space.httpjames.kagiassistantmaterial.R
+import space.httpjames.kagiassistantmaterial.ui.message.ShimmeringMessagePlaceholder
 import java.net.URI
 
 
@@ -138,37 +136,7 @@ fun ChatMessage(
                             )
 
                             if (content.isEmpty()) {
-                                Column(modifier = Modifier.padding(12.dp)) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(20.dp)
-                                            .placeholder(
-                                                visible = true,
-                                                highlight = PlaceholderHighlight.shimmer(),
-                                            )
-                                    )
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth(0.8f)
-                                            .height(20.dp)
-                                            .placeholder(
-                                                visible = true,
-                                                highlight = PlaceholderHighlight.shimmer(),
-                                            )
-                                    )
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth(0.5f)
-                                            .height(20.dp)
-                                            .placeholder(
-                                                visible = true,
-                                                highlight = PlaceholderHighlight.shimmer(),
-                                            )
-                                    )
-                                }
+                                ShimmeringMessagePlaceholder()
                             } else {
                                 HtmlCard(
                                     html = HtmlPreprocessor.preprocess(content),

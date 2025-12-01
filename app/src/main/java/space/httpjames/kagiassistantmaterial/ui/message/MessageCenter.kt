@@ -90,20 +90,22 @@ fun MessageCenter(
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-    if (state.showKeyboardAutomatically) {
-        DisposableEffect(lifecycle) {
-            val observer = object : DefaultLifecycleObserver {
-                override fun onResume(owner: LifecycleOwner) {
-//                    Handler(Looper.getMainLooper()).post {
+    
+    DisposableEffect(lifecycle) {
+        val observer = object : DefaultLifecycleObserver {
+            override fun onResume(owner: LifecycleOwner) {
+                if (state.showKeyboardAutomatically) {
                     focusRequester.requestFocus()
                     keyboard?.show()
-//                    }
                 }
+
+                state.restoreText()
             }
-            lifecycle.addObserver(observer)
-            onDispose { lifecycle.removeObserver(observer) }
         }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
     }
+
 
 
     if (state.showAttachmentSizeLimitWarning) {

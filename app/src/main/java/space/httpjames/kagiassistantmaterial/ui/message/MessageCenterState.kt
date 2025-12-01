@@ -184,8 +184,18 @@ class MessageCenterState(
         }
     }
 
+    fun restoreText() {
+        setText(prefs.getString("savedText", "") ?: "")
+    }
+
+    private fun saveText(newText: String) {
+        prefs.edit().putString("savedText", newText).apply()
+    }
+
+
     fun onTextChanged(newText: String) {
         setText(newText)
+        saveText(newText)
     }
 
     fun toggleSearch() {
