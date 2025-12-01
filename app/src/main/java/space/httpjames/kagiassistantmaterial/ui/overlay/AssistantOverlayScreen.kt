@@ -12,6 +12,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,17 +26,19 @@ import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.OpenInFull
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
@@ -46,16 +49,20 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
@@ -108,6 +115,25 @@ fun AssistantOverlayScreen(
         }
     }
 
+    var dragDistance by remember { mutableStateOf(0f) }
+
+    fun continueInApp() {
+        coroutineScope.launch {
+            localFocusContext.clearFocus()
+            state.saveThreadId()
+            state.saveText()
+            awaitFrame()
+            context.startActivity(
+                Intent(context, MainActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                            Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                            Intent.FLAG_ACTIVITY_SINGLE_TOP
+                }
+            )
+            onDismiss()
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -128,28 +154,90 @@ fun AssistantOverlayScreen(
                     indication = null,
                     onClick = {}
                 )
+                .pointerInput(Unit) {
+                    detectVerticalDragGestures(
+                        onVerticalDrag = { _, dragAmount ->
+                            dragDistance += dragAmount
+                        },
+                        onDragEnd = {
+                            if (dragDistance < -80f) {
+                                continueInApp()
+                            }
+                            dragDistance = 0f
+                        },
+                        onDragCancel = {
+                            dragDistance = 0f
+                        }
+                    )
+                }
+
                 .systemBarsPadding(),
             color = MaterialTheme.colorScheme.background,
             shape = if (state.assistantMessage.isBlank() && lines == 1 && !state.isWaitingForMessageFirstToken && state.assistantDone) RoundedCornerShape(
-                percent = 50
+                32.dp
             )
             else RoundedCornerShape(16.dp)
         ) {
+
             Column {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    HorizontalDivider(
+                        modifier = Modifier
+                            .width(64.dp)
+                            .clip(RoundedCornerShape(50))
+                            .alpha(0.15f),
+                        thickness = 6.dp,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+
                 if (state.assistantMessage.isNotEmpty() || state.isWaitingForMessageFirstToken || !state.assistantDone) {
                     Column(
                         modifier = Modifier
                             .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 0.dp)
                             .fillMaxWidth()
                     ) {
-                        Icon(
-                            painter = painterResource(R.drawable.fetch_ball_icon),
-                            contentDescription = "",
-                            tint = Color.Unspecified,
+                        Row(
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
+                                .fillMaxWidth()
                                 .padding(top = 12.dp, start = 12.dp, end = 12.dp, bottom = 0.dp)
-                                .size(32.dp),
-                        )
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.fetch_ball_icon),
+                                contentDescription = "",
+                                tint = Color.Unspecified,
+                                modifier = Modifier
+
+                                    .size(32.dp),
+                            )
+
+                            FilledIconButton(
+                                onClick = {
+                                    if (state.isSpeaking) {
+                                        state.stopSpeaking()
+                                    } else {
+                                        state.restartSpeaking()
+                                    }
+                                }, colors = IconButtonDefaults.filledIconButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            ) {
+                                Icon(
+                                    imageVector = if (state.isSpeaking) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                    contentDescription = if (state.isSpeaking) "Stop speaking" else "Restart speaking",
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                        }
 
                         if (state.assistantMessage.isNotEmpty()) {
                             Box(
@@ -184,7 +272,7 @@ fun AssistantOverlayScreen(
                         .background(
                             MaterialTheme.colorScheme.surfaceContainerHighest,
                             if (state.assistantMessage.isBlank() && lines == 1 && !state.isWaitingForMessageFirstToken && state.assistantDone) RoundedCornerShape(
-                                percent = 50
+                                32.dp
                             ) else RoundedCornerShape(
                                 16.dp
                             )
@@ -251,38 +339,12 @@ fun AssistantOverlayScreen(
                             )
                         }
 
-                        IconButton(
-                            onClick = {
-                                coroutineScope.launch {
-                                    localFocusContext.clearFocus()
-                                    state.saveThreadId()
-                                    state.saveText()
-                                    awaitFrame()
-                                    context.startActivity(
-                                        Intent(context, MainActivity::class.java).apply {
-                                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                                                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                                                    Intent.FLAG_ACTIVITY_SINGLE_TOP
-                                        }
-                                    )
-                                    onDismiss()
-                                }
-                            },
-                            modifier = Modifier
-                                .padding(8.dp)
-                                .size(48.dp),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.OpenInFull,
-                                contentDescription = "Continue in app",
-                                tint = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-
                         FilledIconButton(
                             onClick = {
                                 if (state.isListening) {
                                     state.stopListening()
+                                } else if (!state.isListening && state.text.isEmpty()) {
+                                    state.restartFlow()
                                 } else {
                                     state.sendMessage()
                                     localFocusContext.clearFocus()
