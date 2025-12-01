@@ -2,6 +2,7 @@ package space.httpjames.kagiassistantmaterial.ui.overlay
 
 import android.content.Intent
 import android.os.Bundle
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
@@ -9,6 +10,8 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -98,6 +101,12 @@ fun AssistantOverlayScreen(
         )
     )
 
+    var visible by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        visible = true
+    }
+
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val state = rememberAssistantOverlayState(assistantClient, context, coroutineScope)
@@ -134,249 +143,263 @@ fun AssistantOverlayScreen(
         }
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.White.copy(alpha = 0.25f))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onDismiss
-            ),
-        contentAlignment = Alignment.BottomEnd,
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(),
+        exit = fadeOut()
     ) {
-        Surface(
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 12.dp, end = 12.dp, bottom = 12.dp)
+                .fillMaxSize()
+                .background(Color.White.copy(alpha = 0.25f))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
-                    onClick = {}
-                )
-                .pointerInput(Unit) {
-                    detectVerticalDragGestures(
-                        onVerticalDrag = { _, dragAmount ->
-                            dragDistance += dragAmount
-                        },
-                        onDragEnd = {
-                            if (dragDistance < -80f) {
-                                continueInApp()
-                            }
-                            dragDistance = 0f
-                        },
-                        onDragCancel = {
-                            dragDistance = 0f
+                    onClick = {
+                        coroutineScope.launch {
+                            visible = false
+                            awaitFrame()
+                            onDismiss()
                         }
-                    )
-                }
-
-                .systemBarsPadding(),
-            color = MaterialTheme.colorScheme.background,
-            shape = if (state.assistantMessage.isBlank() && lines == 1 && !state.isWaitingForMessageFirstToken && state.assistantDone) RoundedCornerShape(
-                32.dp
-            )
-            else RoundedCornerShape(16.dp)
+                    }
+                ),
+            contentAlignment = Alignment.BottomEnd,
         ) {
-
-            Column {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    HorizontalDivider(
-                        modifier = Modifier
-                            .width(64.dp)
-                            .clip(RoundedCornerShape(50))
-                            .alpha(0.15f),
-                        thickness = 6.dp,
-                        color = MaterialTheme.colorScheme.onSurface
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 12.dp, end = 12.dp, bottom = 12.dp)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = {}
                     )
-                }
+                    .pointerInput(Unit) {
+                        detectVerticalDragGestures(
+                            onVerticalDrag = { _, dragAmount ->
+                                dragDistance += dragAmount
+                            },
+                            onDragEnd = {
+                                if (dragDistance < -80f) {
+                                    continueInApp()
+                                }
+                                dragDistance = 0f
+                            },
+                            onDragCancel = {
+                                dragDistance = 0f
+                            }
+                        )
+                    }
 
+                    .systemBarsPadding(),
+                color = MaterialTheme.colorScheme.background,
+                shape = if (state.assistantMessage.isBlank() && lines == 1 && !state.isWaitingForMessageFirstToken && state.assistantDone) RoundedCornerShape(
+                    32.dp
+                )
+                else RoundedCornerShape(16.dp)
+            ) {
 
-                if (state.assistantMessage.isNotEmpty() || state.isWaitingForMessageFirstToken || !state.assistantDone) {
-                    Column(
+                Column {
+                    Row(
                         modifier = Modifier
-                            .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 0.dp)
                             .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        HorizontalDivider(
+                            modifier = Modifier
+                                .width(64.dp)
+                                .clip(RoundedCornerShape(50))
+                                .alpha(0.15f),
+                            thickness = 6.dp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+
+
+                    if (state.assistantMessage.isNotEmpty() || state.isWaitingForMessageFirstToken || !state.assistantDone) {
+                        Column(
+                            modifier = Modifier
+                                .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 0.dp)
+                                .fillMaxWidth()
+                        ) {
+                            Row(
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 12.dp, start = 12.dp, end = 12.dp, bottom = 0.dp)
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.fetch_ball_icon),
+                                    contentDescription = "",
+                                    tint = Color.Unspecified,
+                                    modifier = Modifier
+
+                                        .size(32.dp),
+                                )
+
+                                FilledIconButton(
+                                    onClick = {
+                                        if (state.isSpeaking) {
+                                            state.stopSpeaking()
+                                        } else {
+                                            state.restartSpeaking()
+                                        }
+                                    }, colors = IconButtonDefaults.filledIconButtonColors(
+                                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                ) {
+                                    Icon(
+                                        imageVector = if (state.isSpeaking) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                        contentDescription = if (state.isSpeaking) "Stop speaking" else "Restart speaking",
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
+                            }
+
+                            if (state.assistantMessage.isNotEmpty()) {
+                                Box(
+                                    modifier = Modifier
+                                        .heightIn(min = 60.dp)
+                                        .fillMaxWidth()
+                                ) {
+                                    HtmlCard(
+                                        html = HtmlPreprocessor.preprocess("<p>${state.assistantMessage}</p>"),
+                                        onHeightMeasured = {},
+                                        minHeight = 60.dp
+                                    )
+                                }
+                            } else if (state.isWaitingForMessageFirstToken) {
+                                ShimmeringMessagePlaceholder(
+                                    showNum = 2
+                                )
+                            }
+                        }
+                    }
+
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                        modifier = Modifier
+                            .padding(
+                                start = 8.dp,
+                                end = 12.dp,
+                                bottom = 12.dp,
+                                top = if (state.assistantMessage.isNotBlank()) 0.dp else 12.dp
+                            )
+                            .background(
+                                MaterialTheme.colorScheme.surfaceContainerHighest,
+                                if (state.assistantMessage.isBlank() && lines == 1 && !state.isWaitingForMessageFirstToken && state.assistantDone) RoundedCornerShape(
+                                    32.dp
+                                ) else RoundedCornerShape(
+                                    16.dp
+                                )
+                            )
                     ) {
                         Row(
                             horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
+                            verticalAlignment = if (lines > 1) Alignment.Bottom else Alignment.CenterVertically,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(top = 12.dp, start = 12.dp, end = 12.dp, bottom = 0.dp)
+                                .padding(horizontal = 16.dp)
                         ) {
-                            Icon(
-                                painter = painterResource(R.drawable.fetch_ball_icon),
-                                contentDescription = "",
-                                tint = Color.Unspecified,
+                            val focusRequester = remember { FocusRequester() }
+                            Box(
                                 modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { focusRequester.requestFocus() }   // open keyboard
+                            ) {
+                                BasicTextField(
+                                    value = state.text,
+                                    onValueChange = { state.onTextChanged(it) },
+                                    textStyle = LocalTextStyle.current.copy(
+                                        fontSize = 16.sp,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    ),
+                                    cursorBrush = SolidColor(MaterialTheme.colorScheme.onSurface),
+                                    onTextLayout = { textLayoutResult ->
+                                        lines = textLayoutResult.lineCount
+                                    },
+                                    maxLines = Int.MAX_VALUE,
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.Text,
+                                        imeAction = ImeAction.None
+                                    ),
+                                    modifier = Modifier
+                                        .background(Color.Transparent)
+                                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                                        .onFocusEvent { event ->
+                                            if (event.isFocused) {
+                                                state.stopListening()
+                                            }
 
-                                    .size(32.dp),
-                            )
+                                            state._setIsTypingMode(event.isFocused)
+                                        }
+                                        .animateContentSize()
+                                        .fillMaxWidth(),
+                                    decorationBox = { innerTextField ->
+                                        Box(contentAlignment = Alignment.CenterStart) {
+                                            // placeholder
+                                            if (state.text.isEmpty()) {
+                                                Text(
+                                                    text = "Speak or tap to type",
+                                                    style = LocalTextStyle.current.copy(
+                                                        fontSize = 16.sp,
+                                                        color = MaterialTheme.colorScheme.onSurface.copy(
+                                                            alpha = .5f
+                                                        )
+                                                    )
+                                                )
+                                            }
+                                            innerTextField()
+                                        }
+                                    },
+                                )
+                            }
 
                             FilledIconButton(
                                 onClick = {
-                                    if (state.isSpeaking) {
-                                        state.stopSpeaking()
+                                    if (state.isListening) {
+                                        state.stopListening()
+                                    } else if (!state.isListening && state.text.isEmpty()) {
+                                        state.restartFlow()
                                     } else {
-                                        state.restartSpeaking()
+                                        state.sendMessage()
+                                        localFocusContext.clearFocus()
+                                        state.onTextChanged("")
                                     }
-                                }, colors = IconButtonDefaults.filledIconButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                },
+                                modifier = Modifier
+                                    .border(
+                                        width = 4.dp,
+                                        if (state.isListening) col.copy(alpha = borderAlpha)
+                                        else Color.Transparent,
+                                        CircleShape
+                                    )
+                                    .padding(8.dp)
+                                    .size(48.dp),
+                                enabled = state.text.isNotBlank(),
+                                colors = IconButtonDefaults.filledIconButtonColors(
+                                    containerColor = if (state.isListening) Color.Transparent else MaterialTheme.colorScheme.primaryContainer,
+                                    contentColor = if (state.isListening) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onPrimaryContainer
                                 )
                             ) {
                                 Icon(
-                                    imageVector = if (state.isSpeaking) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                    contentDescription = if (state.isSpeaking) "Stop speaking" else "Restart speaking",
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                    imageVector = if (state.isTypingMode) Icons.Default.Send else Icons.Default.Mic,
+                                    contentDescription = if (state.isTypingMode) "Send message" else null,
+                                    tint = MaterialTheme.colorScheme.onSurface
                                 )
                             }
-                        }
-
-                        if (state.assistantMessage.isNotEmpty()) {
-                            Box(
-                                modifier = Modifier
-                                    .heightIn(min = 60.dp)
-                                    .fillMaxWidth()
-                            ) {
-                                HtmlCard(
-                                    html = HtmlPreprocessor.preprocess("<p>${state.assistantMessage}</p>"),
-                                    onHeightMeasured = {},
-                                    minHeight = 60.dp
-                                )
-                            }
-                        } else if (state.isWaitingForMessageFirstToken) {
-                            ShimmeringMessagePlaceholder(
-                                showNum = 2
-                            )
-                        }
-                    }
-                }
-
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                    modifier = Modifier
-                        .padding(
-                            start = 8.dp,
-                            end = 12.dp,
-                            bottom = 12.dp,
-                            top = if (state.assistantMessage.isNotBlank()) 0.dp else 12.dp
-                        )
-                        .background(
-                            MaterialTheme.colorScheme.surfaceContainerHighest,
-                            if (state.assistantMessage.isBlank() && lines == 1 && !state.isWaitingForMessageFirstToken && state.assistantDone) RoundedCornerShape(
-                                32.dp
-                            ) else RoundedCornerShape(
-                                16.dp
-                            )
-                        )
-                ) {
-                    Row(
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = if (lines > 1) Alignment.Bottom else Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                    ) {
-                        val focusRequester = remember { FocusRequester() }
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clickable { focusRequester.requestFocus() }   // open keyboard
-                        ) {
-                            BasicTextField(
-                                value = state.text,
-                                onValueChange = { state.onTextChanged(it) },
-                                textStyle = LocalTextStyle.current.copy(
-                                    fontSize = 16.sp,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                ),
-                                cursorBrush = SolidColor(MaterialTheme.colorScheme.onSurface),
-                                onTextLayout = { textLayoutResult ->
-                                    lines = textLayoutResult.lineCount
-                                },
-                                maxLines = Int.MAX_VALUE,
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Text,
-                                    imeAction = ImeAction.None
-                                ),
-                                modifier = Modifier
-                                    .background(Color.Transparent)
-                                    .padding(horizontal = 16.dp, vertical = 12.dp)
-                                    .onFocusEvent { event ->
-                                        if (event.isFocused) {
-                                            state.stopListening()
-                                        }
-
-                                        state._setIsTypingMode(event.isFocused)
-                                    }
-                                    .animateContentSize()
-                                    .fillMaxWidth(),
-                                decorationBox = { innerTextField ->
-                                    Box(contentAlignment = Alignment.CenterStart) {
-                                        // placeholder
-                                        if (state.text.isEmpty()) {
-                                            Text(
-                                                text = "Speak or tap to type",
-                                                style = LocalTextStyle.current.copy(
-                                                    fontSize = 16.sp,
-                                                    color = MaterialTheme.colorScheme.onSurface.copy(
-                                                        alpha = .5f
-                                                    )
-                                                )
-                                            )
-                                        }
-                                        innerTextField()
-                                    }
-                                },
-                            )
-                        }
-
-                        FilledIconButton(
-                            onClick = {
-                                if (state.isListening) {
-                                    state.stopListening()
-                                } else if (!state.isListening && state.text.isEmpty()) {
-                                    state.restartFlow()
-                                } else {
-                                    state.sendMessage()
-                                    localFocusContext.clearFocus()
-                                    state.onTextChanged("")
-                                }
-                            },
-                            modifier = Modifier
-                                .border(
-                                    width = 4.dp,
-                                    if (state.isListening) col.copy(alpha = borderAlpha)
-                                    else Color.Transparent,
-                                    CircleShape
-                                )
-                                .padding(8.dp)
-                                .size(48.dp),
-                            enabled = state.text.isNotBlank(),
-                            colors = IconButtonDefaults.filledIconButtonColors(
-                                containerColor = if (state.isListening) Color.Transparent else MaterialTheme.colorScheme.primaryContainer,
-                                contentColor = if (state.isListening) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        ) {
-                            Icon(
-                                imageVector = if (state.isTypingMode) Icons.Default.Send else Icons.Default.Mic,
-                                contentDescription = if (state.isTypingMode) "Send message" else null,
-                                tint = MaterialTheme.colorScheme.onSurface
-                            )
                         }
                     }
                 }
             }
         }
     }
+
+
 }
 
 
