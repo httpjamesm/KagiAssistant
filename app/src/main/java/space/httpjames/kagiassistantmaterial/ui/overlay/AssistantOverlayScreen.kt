@@ -23,19 +23,23 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Pause
@@ -158,6 +162,8 @@ fun AssistantOverlayScreen(
 
     var dragDistance by remember { mutableStateOf(0f) }
 
+    val scrollState = rememberScrollState()
+
     AnimatedVisibility(
         visible = visible,
         enter = fadeIn(),
@@ -246,186 +252,202 @@ fun AssistantOverlayScreen(
                             )
                         }
 
-
-                        if (state.assistantMessage.isNotEmpty() || state.isWaitingForMessageFirstToken || !state.assistantDone) {
+                        Box(modifier = Modifier.fillMaxWidth()) {
                             Column(
                                 modifier = Modifier
-                                    .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 0.dp)
+                                    .verticalScroll(scrollState)
+                                    .padding(horizontal = 12.dp, vertical = 12.dp)
                                     .fillMaxWidth()
+                                    .heightIn(max = 700.dp),
+                            ) {
+                                if (state.assistantMessage.isNotEmpty() || state.isWaitingForMessageFirstToken || !state.assistantDone) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                    ) {
+                                        Row(
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(
+                                                    top = 12.dp,
+                                                    start = 12.dp,
+                                                    end = 12.dp,
+                                                    bottom = 0.dp
+                                                )
+                                        ) {
+                                            Icon(
+                                                painter = painterResource(R.drawable.fetch_ball_icon),
+                                                contentDescription = "",
+                                                tint = Color.Unspecified,
+                                                modifier = Modifier
+
+                                                    .size(32.dp),
+                                            )
+
+                                            FilledIconButton(
+                                                onClick = {
+                                                    if (state.isSpeaking) {
+                                                        state.stopSpeaking()
+                                                    } else {
+                                                        state.restartSpeaking()
+                                                    }
+                                                },
+                                                colors = IconButtonDefaults.filledIconButtonColors(
+                                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                                )
+                                            ) {
+                                                Icon(
+                                                    imageVector = if (state.isSpeaking) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                                    contentDescription = if (state.isSpeaking) "Stop speaking" else "Restart speaking",
+                                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                                )
+                                            }
+                                        }
+
+                                        if (state.assistantMessage.isNotEmpty()) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .heightIn(min = 60.dp)
+                                                    .fillMaxWidth()
+                                            ) {
+                                                HtmlCard(
+                                                    html = HtmlPreprocessor.preprocess("<p>${state.assistantMessage}</p>"),
+                                                    onHeightMeasured = {},
+                                                    minHeight = 60.dp
+                                                )
+                                            }
+                                        } else if (state.isWaitingForMessageFirstToken) {
+                                            ShimmeringMessagePlaceholder(
+                                                showNum = 2
+                                            )
+                                        }
+
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(80.dp))
+
+                            }
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .padding(
+                                        start = 8.dp,
+                                        end = 12.dp,
+                                        bottom = 12.dp,
+                                        top = if (state.assistantMessage.isNotBlank()) 0.dp else 12.dp
+                                    )
+                                    .align(Alignment.BottomCenter)
+                                    .heightIn(min = 60.dp)
+                                    .background(
+                                        MaterialTheme.colorScheme.surfaceContainerHighest,
+                                        RoundedCornerShape(
+                                            16.dp
+                                        )
+                                    )
                             ) {
                                 Row(
                                     horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically,
+                                    verticalAlignment = if (lines > 1) Alignment.Bottom else Alignment.CenterVertically,
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(
-                                            top = 12.dp,
-                                            start = 12.dp,
-                                            end = 12.dp,
-                                            bottom = 0.dp
-                                        )
+//                                        .padding(horizontal = 16.dp)
                                 ) {
-                                    Icon(
-                                        painter = painterResource(R.drawable.fetch_ball_icon),
-                                        contentDescription = "",
-                                        tint = Color.Unspecified,
+                                    val focusRequester = remember { FocusRequester() }
+                                    Box(
                                         modifier = Modifier
+                                            .weight(1f)
+                                            .clickable { focusRequester.requestFocus() }
+                                    ) {
+                                        BasicTextField(
+                                            value = state.text,
+                                            onValueChange = { state.onTextChanged(it) },
+                                            textStyle = LocalTextStyle.current.copy(
+                                                fontSize = 16.sp,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            ),
+                                            cursorBrush = SolidColor(MaterialTheme.colorScheme.onSurface),
+                                            onTextLayout = { textLayoutResult ->
+                                                lines = textLayoutResult.lineCount
+                                            },
+                                            maxLines = Int.MAX_VALUE,
+                                            keyboardOptions = KeyboardOptions(
+                                                keyboardType = KeyboardType.Text,
+                                                imeAction = ImeAction.None
+                                            ),
+                                            modifier = Modifier
+                                                .background(Color.Transparent)
+                                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                                                .onFocusEvent { event ->
+                                                    if (event.isFocused) {
+                                                        state.stopListening()
+                                                    }
 
-                                            .size(32.dp),
-                                    )
+                                                    state._setIsTypingMode(event.isFocused)
+                                                }
+                                                .animateContentSize()
+                                                .fillMaxWidth(),
+                                            decorationBox = { innerTextField ->
+                                                Box(contentAlignment = Alignment.CenterStart) {
+                                                    // placeholder
+                                                    if (state.text.isEmpty()) {
+                                                        Text(
+                                                            text = "Speak or tap to type",
+                                                            style = LocalTextStyle.current.copy(
+                                                                fontSize = 16.sp,
+                                                                color = MaterialTheme.colorScheme.onSurface.copy(
+                                                                    alpha = .5f
+                                                                )
+                                                            )
+                                                        )
+                                                    }
+                                                    innerTextField()
+                                                }
+                                            },
+                                        )
+                                    }
 
                                     FilledIconButton(
                                         onClick = {
-                                            if (state.isSpeaking) {
-                                                state.stopSpeaking()
+                                            if (state.isListening) {
+                                                state.stopListening()
+                                            } else if (!state.isListening && state.text.isEmpty()) {
+                                                state.restartFlow()
                                             } else {
-                                                state.restartSpeaking()
+                                                state.sendMessage()
+                                                localFocusContext.clearFocus()
+                                                state.onTextChanged("")
                                             }
-                                        }, colors = IconButtonDefaults.filledIconButtonColors(
-                                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                        },
+                                        modifier = Modifier
+                                            .border(
+                                                width = 4.dp,
+                                                if (state.isListening) col.copy(alpha = borderAlpha)
+                                                else Color.Transparent,
+                                                CircleShape
+                                            )
+                                            .padding(8.dp)
+                                            .size(48.dp),
+                                        colors = IconButtonDefaults.filledIconButtonColors(
+                                            containerColor = if (state.isListening) Color.Transparent else MaterialTheme.colorScheme.primaryContainer,
+                                            contentColor = if (state.isListening) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onPrimaryContainer
                                         )
                                     ) {
                                         Icon(
-                                            imageVector = if (state.isSpeaking) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                            contentDescription = if (state.isSpeaking) "Stop speaking" else "Restart speaking",
-                                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                            imageVector = if (state.isTypingMode) Icons.Default.Send else Icons.Default.Mic,
+                                            contentDescription = if (state.isTypingMode) "Send message" else null,
+                                            tint = MaterialTheme.colorScheme.onSurface
                                         )
                                     }
                                 }
-
-                                if (state.assistantMessage.isNotEmpty()) {
-                                    Box(
-                                        modifier = Modifier
-                                            .heightIn(min = 60.dp)
-                                            .fillMaxWidth()
-                                    ) {
-                                        HtmlCard(
-                                            html = HtmlPreprocessor.preprocess("<p>${state.assistantMessage}</p>"),
-                                            onHeightMeasured = {},
-                                            minHeight = 60.dp
-                                        )
-                                    }
-                                } else if (state.isWaitingForMessageFirstToken) {
-                                    ShimmeringMessagePlaceholder(
-                                        showNum = 2
-                                    )
-                                }
                             }
+
                         }
 
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center,
-                            modifier = Modifier
-                                .padding(
-                                    start = 8.dp,
-                                    end = 12.dp,
-                                    bottom = 12.dp,
-                                    top = if (state.assistantMessage.isNotBlank()) 0.dp else 12.dp
-                                )
-                                .background(
-                                    MaterialTheme.colorScheme.surfaceContainerHighest,
-                                    RoundedCornerShape(
-                                        16.dp
-                                    )
-                                )
-                        ) {
-                            Row(
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = if (lines > 1) Alignment.Bottom else Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp)
-                            ) {
-                                val focusRequester = remember { FocusRequester() }
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clickable { focusRequester.requestFocus() }   // open keyboard
-                                ) {
-                                    BasicTextField(
-                                        value = state.text,
-                                        onValueChange = { state.onTextChanged(it) },
-                                        textStyle = LocalTextStyle.current.copy(
-                                            fontSize = 16.sp,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        ),
-                                        cursorBrush = SolidColor(MaterialTheme.colorScheme.onSurface),
-                                        onTextLayout = { textLayoutResult ->
-                                            lines = textLayoutResult.lineCount
-                                        },
-                                        maxLines = Int.MAX_VALUE,
-                                        keyboardOptions = KeyboardOptions(
-                                            keyboardType = KeyboardType.Text,
-                                            imeAction = ImeAction.None
-                                        ),
-                                        modifier = Modifier
-                                            .background(Color.Transparent)
-                                            .padding(horizontal = 16.dp, vertical = 12.dp)
-                                            .onFocusEvent { event ->
-                                                if (event.isFocused) {
-                                                    state.stopListening()
-                                                }
-
-                                                state._setIsTypingMode(event.isFocused)
-                                            }
-                                            .animateContentSize()
-                                            .fillMaxWidth(),
-                                        decorationBox = { innerTextField ->
-                                            Box(contentAlignment = Alignment.CenterStart) {
-                                                // placeholder
-                                                if (state.text.isEmpty()) {
-                                                    Text(
-                                                        text = "Speak or tap to type",
-                                                        style = LocalTextStyle.current.copy(
-                                                            fontSize = 16.sp,
-                                                            color = MaterialTheme.colorScheme.onSurface.copy(
-                                                                alpha = .5f
-                                                            )
-                                                        )
-                                                    )
-                                                }
-                                                innerTextField()
-                                            }
-                                        },
-                                    )
-                                }
-
-                                FilledIconButton(
-                                    onClick = {
-                                        if (state.isListening) {
-                                            state.stopListening()
-                                        } else if (!state.isListening && state.text.isEmpty()) {
-                                            state.restartFlow()
-                                        } else {
-                                            state.sendMessage()
-                                            localFocusContext.clearFocus()
-                                            state.onTextChanged("")
-                                        }
-                                    },
-                                    modifier = Modifier
-                                        .border(
-                                            width = 4.dp,
-                                            if (state.isListening) col.copy(alpha = borderAlpha)
-                                            else Color.Transparent,
-                                            CircleShape
-                                        )
-                                        .padding(8.dp)
-                                        .size(48.dp),
-                                    colors = IconButtonDefaults.filledIconButtonColors(
-                                        containerColor = if (state.isListening) Color.Transparent else MaterialTheme.colorScheme.primaryContainer,
-                                        contentColor = if (state.isListening) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                ) {
-                                    Icon(
-                                        imageVector = if (state.isTypingMode) Icons.Default.Send else Icons.Default.Mic,
-                                        contentDescription = if (state.isTypingMode) "Send message" else null,
-                                        tint = MaterialTheme.colorScheme.onSurface
-                                    )
-                                }
-                            }
-                        }
                     }
                 }
             }
