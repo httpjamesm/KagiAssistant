@@ -475,7 +475,7 @@ fun File.to84x84ThumbFile(): File {
 
     val outFile = createTempFile("thumb_", ".webp")   // /data/local/tmp/…  (world-writable)
     FileOutputStream(outFile).use { out ->
-        thumb.compress(Bitmap.CompressFormat.WEBP_LOSSY, 100, out)
+        thumb.compress(Bitmap.CompressFormat.WEBP_LOSSY, 50, out)
     }
     return outFile
 }
