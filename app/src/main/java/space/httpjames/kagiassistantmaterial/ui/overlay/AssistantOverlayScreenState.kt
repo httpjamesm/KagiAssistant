@@ -90,7 +90,8 @@ class AssistantOverlayState(
     }
 
 
-    private val ttsManager = TtsManager(context)
+    private val ttsManager =
+        TtsManager(context, onStart = { isSpeaking = true }, onDone = { isSpeaking = false })
 
     /* internal helpers */
     private val speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
