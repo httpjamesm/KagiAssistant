@@ -82,6 +82,13 @@ class AssistantOverlayState(
     var screenshotAttached by mutableStateOf(false)
         private set
 
+    var screenshot by mutableStateOf<Bitmap?>(null)
+        private set
+
+    fun _setScreenshot(screenshot: Bitmap?) {
+        this.screenshot = screenshot
+    }
+
 
     private val ttsManager = TtsManager(context)
 
@@ -149,9 +156,10 @@ class AssistantOverlayState(
         isTypingMode = isTyping
     }
 
-    fun sendMessage(screenshot: Bitmap? = null) {
+    fun sendMessage() {
         userMessage = text
 
+        val screenshot = if (this.screenshotAttached) this.screenshot else null
 
         coroutineScope.launch {
             val focus = KagiPromptRequestFocus(

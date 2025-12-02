@@ -140,6 +140,9 @@ fun AssistantOverlayScreen(
         }
     }
 
+    LaunchedEffect(screenshot) {
+        state._setScreenshot(screenshot)
+    }
 
     var lines by rememberSaveable { mutableIntStateOf(1) }
 
@@ -396,7 +399,7 @@ fun AssistantOverlayScreen(
                                         } else if (!state.isListening && state.text.isEmpty()) {
                                             state.restartFlow()
                                         } else {
-                                            state.sendMessage(if (state.screenshotAttached) screenshot else null)
+                                            state.sendMessage()
                                             localFocusContext.clearFocus()
                                             state.onTextChanged("")
                                         }
