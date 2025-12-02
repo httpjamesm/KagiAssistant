@@ -3,6 +3,7 @@ package space.httpjames.kagiassistantmaterial.utils
 
 import android.content.Context
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import android.speech.tts.Voice
 import android.util.Log
 import com.google.mlkit.nl.languageid.LanguageIdentification
@@ -10,6 +11,8 @@ import java.util.Locale
 
 class TtsManager(
     private val context: Context,
+    private val onStart: () -> Unit = {},
+    private val onDone: () -> Unit = {},
 ) : TextToSpeech.OnInitListener {
 
     private var tts: TextToSpeech? = null
@@ -24,6 +27,24 @@ class TtsManager(
             Log.e("TtsManager", "Initialization failed")
             return
         }
+
+        tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+            override fun onStart(utteranceId: String?) {
+                Log.d("TtsManager", "Speech started: $utteranceId")
+                onStart()
+            }
+
+            override fun onDone(utteranceId: String?) {
+                Log.d("TtsManager", "Speech completed: $utteranceId")
+                onDone()
+            }
+
+            override fun onError(utteranceId: String?) {
+                Log.e("TtsManager", "Speech error: $utteranceId")
+            }
+        })
+
+
 
         Log.d("TtsManager", "TTS initialized, waiting for text to detect language.")
 
