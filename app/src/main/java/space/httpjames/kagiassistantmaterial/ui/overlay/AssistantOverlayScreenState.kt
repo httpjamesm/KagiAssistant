@@ -89,7 +89,6 @@ class AssistantOverlayState(
         this.screenshot = screenshot
     }
 
-
     private val ttsManager =
         TtsManager(context, onStart = { isSpeaking = true }, onDone = { isSpeaking = false })
 
@@ -306,8 +305,15 @@ class AssistantOverlayState(
     }
 
     fun restartFlow() {
-        text = ""
+        onTextChanged("")
         if (permissionOk) speechRecognizer.startListening(intent)
+    }
+
+    fun reset() {
+        onTextChanged("")
+        userMessage = ""
+        assistantMessage = ""
+        currentThreadId = null
     }
 
     fun stopListening() {

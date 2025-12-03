@@ -120,6 +120,10 @@ fun AssistantOverlayScreen(
         }
     }
 
+    LaunchedEffect(visible) {
+        state.reset()
+    }
+
     val scrollState = rememberScrollState()
 
     AnimatedVisibility(
