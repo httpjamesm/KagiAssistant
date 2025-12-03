@@ -19,9 +19,16 @@ Native Material You Android app for Kagi Assistant.
 
 ## Screenshots
 
+### App
+
 | <img src="./docs/screenies/onboarding.webp" width="250"> | <img src="./docs/screenies/1000015800.webp" width="250"> | <img src="./docs/screenies/1000015801.webp" width="250">        |
 |----------------------------------------------------------|----------------------------------------------------------|-----------------------------------------------------------------|
 | <img src="./docs/screenies/1000015802.webp" width="250"> | <img src="./docs/screenies/1000015799.webp" width="250"> | <img src="./docs/screenies/default_assistant.webp" width="250"> |
+
+### Digital Assistant
+
+> Use of the mini overlay is enabled by default, but it’s optional. In Settings, you can turn it off
+> so that when you invoke the assistant, the app opens in its full view instead.
 
 ## Installation
 
