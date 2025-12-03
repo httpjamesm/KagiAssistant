@@ -24,12 +24,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
@@ -75,7 +73,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
@@ -462,17 +459,3 @@ fun AssistantOverlayScreen(
 }
 
 
-@Composable
-fun Modifier.customImePadding(extraBottom: Int = 0): Modifier {
-    val ime = WindowInsets.ime
-    val density = LocalDensity.current
-
-    val bottomDp = with(density) {
-        // Read the IME bottom inset in px and convert to dp
-        ime.getBottom(this).toDp()
-    }
-
-    return this.padding(
-        bottom = bottomDp + extraBottom.dp
-    )
-}
