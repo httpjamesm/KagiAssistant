@@ -121,7 +121,9 @@ fun AssistantOverlayScreen(
     }
 
     LaunchedEffect(visible) {
-        state.reset()
+        if (visible) {
+            state.reset()
+        }
     }
 
     val scrollState = rememberScrollState()
