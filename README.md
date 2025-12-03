@@ -27,6 +27,9 @@ Native Material You Android app for Kagi Assistant.
 
 ### Digital Assistant
 
+
+https://github.com/user-attachments/assets/a6214f1d-f0c4-4bac-9518-4d4adf76bcbc
+
 > Use of the mini overlay is enabled by default, but it’s optional. In Settings, you can turn it off
 > so that when you invoke the assistant, the app opens in its full view instead.
 
