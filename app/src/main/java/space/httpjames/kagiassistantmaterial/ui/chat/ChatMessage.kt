@@ -179,14 +179,11 @@ fun ChatMessage(
         contentSegments.mapIndexed { index, segment ->
             when (segment) {
                 is ContentSegment.Event -> {
-                    // Check if there's any HtmlContent segment after this Event
-                    val hasContentAfter = contentSegments
-                        .subList(index + 1, contentSegments.size)
-                        .any { it is ContentSegment.HtmlContent }
-                    hasContentAfter
+                    // Completed if there's any segment after this one
+                    index < contentSegments.lastIndex
                 }
 
-                else -> false // Not relevant for HtmlContent segments
+                else -> false
             }
         }
     }
