@@ -105,10 +105,21 @@ object ContentParser {
             val rawSummary = summaryMatch?.groupValues?.get(1)?.trim()
 
             // Take only the part before any '<'
-            val title = rawSummary
+            var title = rawSummary
                 ?.substringBefore("<")
                 ?.trim()
                 ?: "Action"
+
+            // strip the trailing colon
+            title = title.removeSuffix(":")
+
+            // if contains "key details", remove the trailing "from"
+            if (title.contains("key details")) {
+                title = title.removeSuffix("from")
+            }
+
+            title = title.trim()
+
 
             // Extract content after </summary>
             val content = if (summaryMatch != null) {
