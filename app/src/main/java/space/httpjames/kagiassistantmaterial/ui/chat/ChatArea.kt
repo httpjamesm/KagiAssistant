@@ -92,6 +92,7 @@ fun ChatArea(
                 Column(
                     modifier = Modifier
                         .verticalScroll(scrollState)
+                        .padding(bottom = 24.dp)
                         .fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {

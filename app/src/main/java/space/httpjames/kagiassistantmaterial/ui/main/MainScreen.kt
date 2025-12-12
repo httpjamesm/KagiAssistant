@@ -3,7 +3,10 @@ package space.httpjames.kagiassistantmaterial.ui.main
 import android.content.ClipData
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
@@ -20,6 +23,8 @@ import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -151,7 +156,14 @@ fun MainScreen(
                 ChatArea(
                     threadMessages = state.threadMessages,
                     modifier = Modifier
-                        .padding(innerPadding)
+                        .padding(
+                            PaddingValues(
+                                start = innerPadding.calculateStartPadding(LocalLayoutDirection.current),
+                                top = innerPadding.calculateTopPadding(),
+                                end = innerPadding.calculateEndPadding(LocalLayoutDirection.current),
+                                bottom = 0.dp
+                            )
+                        )
                         .weight(1f),
                     threadMessagesCallState = state.threadMessagesCallState,
                     currentThreadId = state.currentThreadId,
