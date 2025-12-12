@@ -49,8 +49,12 @@ fun SourcesBottomSheet(
                         .fillMaxWidth()
                         .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)
                         .clickable {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(citation.url))
-                            context.startActivity(intent)
+                            try {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(citation.url))
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
                         },
                     verticalAlignment = Alignment.CenterVertically
                 ) {
