@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
@@ -137,11 +138,15 @@ private fun ThreadList(
     LazyColumn {
         threads.forEach { (category, threadList) ->
             item {
-                Text(
-                    text = category,
-                    modifier = Modifier.padding(16.dp),
-                    style = MaterialTheme.typography.titleMedium
-                )
+                Column {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    HorizontalDivider()
+                    Text(
+                        text = category,
+                        modifier = Modifier.padding(16.dp),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
             }
             items(threadList) { thread ->
                 NavigationDrawerItem(
