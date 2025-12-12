@@ -5,6 +5,9 @@ import android.content.res.Configuration
 import android.view.View
 import android.webkit.WebSettings
 import android.webkit.WebView
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -16,6 +19,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -38,11 +42,21 @@ fun HtmlCard(
 
     val context = LocalContext.current
 
-//    val animatedHeight = animateDpAsState(
-//        targetValue = heightState.dp,
-//        animationSpec = tween(300)
-//    ).value
-    val animatedHeight = heightState.dp
+    var previousHeight by remember { mutableIntStateOf(0) }
+    var isLoading by remember { mutableStateOf(false) }
+
+    val displayHeight = if (isLoading && heightState < previousHeight) {
+        previousHeight
+    } else {
+        heightState
+    }
+
+    val animatedHeight by animateDpAsState(
+        targetValue = displayHeight.dp.coerceAtLeast(minHeight),
+        animationSpec = tween(durationMillis = 150, easing = FastOutSlowInEasing),
+        label = "height"
+    )
+
 
     Card(
         modifier = modifier
@@ -76,8 +90,11 @@ fun HtmlCard(
                             HtmlViewerJavaScriptInterface(
                                 expectedMin = 0,
                                 onHeightMeasured = { h ->
-                                    heightState = h
-                                    onHeightMeasured?.invoke()
+                                    if (h > 50) {
+                                        heightState = h
+                                        isLoading = false
+                                        onHeightMeasured?.invoke()
+                                    }
                                 }
 
                             ),
@@ -104,6 +121,9 @@ fun HtmlCard(
                 update = { webView ->
                     val lastHtml = webView.tag as? String
                     if (lastHtml != html) {
+                        previousHeight = heightState
+                        isLoading = true
+
                         val night = (context.resources.configuration.uiMode and
                                 Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
                         val cssScheme = if (night) "dark" else "light"

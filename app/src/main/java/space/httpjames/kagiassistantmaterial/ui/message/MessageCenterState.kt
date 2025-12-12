@@ -385,8 +385,8 @@ class MessageCenterState(
                         if ((currentTime - lastTokenUpdateTime) >= 32) {
                             lastTokenUpdateTime = currentTime
                             coroutineScope.launch(Dispatchers.Main.immediate) {
-                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 setThreadMessages(localMessages)
+                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             }
                         }
                     }
