@@ -35,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -59,6 +60,78 @@ import space.httpjames.kagiassistantmaterial.R
 import space.httpjames.kagiassistantmaterial.ui.message.ShimmeringMessagePlaceholder
 import java.net.URI
 
+sealed class ContentSegment {
+    data class Event(
+        val title: String,
+        val content: String,
+        val timestamp: String? = null
+    ) : ContentSegment()
+
+    data class HtmlContent(
+        val html: String
+    ) : ContentSegment()
+}
+
+object ContentParser {
+    private val detailsRegex = Regex(
+        """<details>(.*?)</details>""",
+        RegexOption.DOT_MATCHES_ALL
+    )
+
+    private val summaryRegex = Regex(
+        """<summary>(.*?)</summary>""",
+        RegexOption.DOT_MATCHES_ALL
+    )
+
+    fun parseContent(html: String): List<ContentSegment> {
+        if (html.isEmpty()) return emptyList()
+
+        val segments = mutableListOf<ContentSegment>()
+        var lastIndex = 0
+
+        detailsRegex.findAll(html).forEach { match ->
+            // Add content before this <details> block
+            if (match.range.first > lastIndex) {
+                val htmlBefore = html.substring(lastIndex, match.range.first).trim()
+                if (htmlBefore.isNotEmpty()) {
+                    segments.add(ContentSegment.HtmlContent(htmlBefore))
+                }
+            }
+
+            val detailsContent = match.groupValues[1]
+
+            // Extract summary
+            val summaryMatch = summaryRegex.find(detailsContent)
+            val rawSummary = summaryMatch?.groupValues?.get(1)?.trim()
+
+            // Take only the part before any '<'
+            val title = rawSummary
+                ?.substringBefore("<")
+                ?.trim()
+                ?: "Action"
+
+            // Extract content after </summary>
+            val content = if (summaryMatch != null) {
+                detailsContent.substring(summaryMatch.range.last + 1).trim()
+            } else {
+                detailsContent.trim()
+            }
+
+            segments.add(ContentSegment.Event(title, content))
+            lastIndex = match.range.last + 1
+        }
+
+        // Add remaining content after last <details>
+        if (lastIndex < html.length) {
+            val htmlAfter = html.substring(lastIndex).trim()
+            if (htmlAfter.isNotEmpty()) {
+                segments.add(ContentSegment.HtmlContent(htmlAfter))
+            }
+        }
+
+        return segments
+    }
+}
 
 @OptIn(ExperimentalLayoutApi::class)
 @SuppressLint("UnusedBoxWithConstraintsScope")
@@ -86,6 +159,31 @@ fun ChatMessage(
     var showSourcesSheet by remember { mutableStateOf(false) }
     var menuExpanded by remember { mutableStateOf(false) }
     var showMetadataModal by remember { mutableStateOf(false) }
+
+    val contentSegments = remember(content, id) {
+        ContentParser.parseContent(content)
+    }
+
+    val eventCompletionStates = remember(contentSegments, finishedGenerating) {
+        contentSegments.mapIndexed { index, segment ->
+            when (segment) {
+                is ContentSegment.Event -> {
+                    // Check if there's any HtmlContent segment after this Event
+                    val hasContentAfter = contentSegments
+                        .subList(index + 1, contentSegments.size)
+                        .any { it is ContentSegment.HtmlContent }
+                    hasContentAfter
+                }
+
+                else -> false // Not relevant for HtmlContent segments
+            }
+        }
+    }
+
+
+    val eventExpandedStates = remember(id) {
+        mutableStateMapOf<Int, Boolean>()
+    }
 
 
     val documentsScroll = rememberScrollState()
@@ -138,10 +236,39 @@ fun ChatMessage(
                             if (content.isEmpty()) {
                                 ShimmeringMessagePlaceholder()
                             } else {
-                                HtmlCard(
-                                    html = HtmlPreprocessor.preprocess(content),
-                                    onHeightMeasured = onHeightMeasured
-                                )
+                                var eventIndex = 0
+
+                                contentSegments.forEachIndexed { index, segment ->
+                                    key("$id-segment-$index") {
+                                        when (segment) {
+                                            is ContentSegment.Event -> {
+                                                val currentEventIndex = eventIndex
+                                                eventIndex++
+
+                                                ChatEvent(
+                                                    completed = eventCompletionStates[index],
+                                                    displayText = segment.title,
+                                                    content = segment.content,
+                                                    expanded = eventExpandedStates[currentEventIndex]
+                                                        ?: false,
+                                                    onExpandRequest = {
+                                                        eventExpandedStates[currentEventIndex] =
+                                                            !(eventExpandedStates[currentEventIndex]
+                                                                ?: false)
+                                                    }
+                                                )
+                                            }
+
+                                            is ContentSegment.HtmlContent -> {
+                                                HtmlCard(
+                                                    html = HtmlPreprocessor.preprocess(segment.html),
+                                                    onHeightMeasured = if (index == contentSegments.lastIndex)
+                                                        onHeightMeasured else null
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
 
                                 if (finishedGenerating) {
                                     Row(
