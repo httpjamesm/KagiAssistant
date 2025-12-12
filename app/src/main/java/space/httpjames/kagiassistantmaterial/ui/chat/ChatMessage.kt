@@ -164,6 +164,23 @@ fun ChatMessage(
         ContentParser.parseContent(content)
     }
 
+    val eventCompletionStates = remember(contentSegments, finishedGenerating) {
+        contentSegments.mapIndexed { index, segment ->
+            when (segment) {
+                is ContentSegment.Event -> {
+                    // Check if there's any HtmlContent segment after this Event
+                    val hasContentAfter = contentSegments
+                        .subList(index + 1, contentSegments.size)
+                        .any { it is ContentSegment.HtmlContent }
+                    hasContentAfter
+                }
+
+                else -> false // Not relevant for HtmlContent segments
+            }
+        }
+    }
+
+
     val eventExpandedStates = remember(id) {
         mutableStateMapOf<Int, Boolean>()
     }
@@ -229,7 +246,7 @@ fun ChatMessage(
                                                 eventIndex++
 
                                                 ChatEvent(
-                                                    completed = finishedGenerating,
+                                                    completed = eventCompletionStates[index],
                                                     displayText = segment.title,
                                                     content = segment.content,
                                                     expanded = eventExpandedStates[currentEventIndex]

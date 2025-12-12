@@ -39,7 +39,7 @@ fun ChatEvent(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(8.dp)
+            .padding(top = 8.dp, start = 8.dp, end = 8.dp, bottom = 12.dp)
             .clickable(true, onClick = onExpandRequest)
             .animateContentSize(),
         color = MaterialTheme.colorScheme.surfaceContainerHighest,
