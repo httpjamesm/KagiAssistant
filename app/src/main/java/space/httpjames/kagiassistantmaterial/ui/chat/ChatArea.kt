@@ -33,17 +33,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.android.awaitFrame
 import kotlinx.coroutines.launch
 import space.httpjames.kagiassistantmaterial.AssistantThreadMessage
 import space.httpjames.kagiassistantmaterial.AssistantThreadMessageRole
-import space.httpjames.kagiassistantmaterial.R
 import space.httpjames.kagiassistantmaterial.utils.DataFetchingState
 
 @Composable
@@ -157,30 +153,7 @@ fun ChatArea(
                 }
             }
         } else {
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.fetch_ball_icon),
-                        contentDescription = "",
-                        tint = Color.Unspecified,
-                        modifier = Modifier
-                            .padding(12.dp)
-                            .size(96.dp)
-                            .alpha(0.6f),
-                    )
-                    Text(
-                        "Kagi Assistant",
-                        style = MaterialTheme.typography.displaySmall,
-                        modifier = Modifier.alpha(0.6f)
-                    )
-                }
-            }
+            EmptyChatPlaceholder()
         }
     }
 
