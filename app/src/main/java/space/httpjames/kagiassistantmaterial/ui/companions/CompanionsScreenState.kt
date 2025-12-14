@@ -16,23 +16,21 @@ import space.httpjames.kagiassistantmaterial.utils.DataFetchingState
 import java.io.File
 
 @Composable
-fun rememberCompanionsScreenState(assistantClient: AssistantClient): CompanionsScreenState {
+fun rememberCompanionsScreenState(
+    assistantClient: AssistantClient
+): CompanionsScreenState {
     val context = LocalContext.current
-    val prefs = remember(context) {
-        context.getSharedPreferences("assistant_prefs", Context.MODE_PRIVATE)
-    }
-    return remember(prefs, context) {
-        CompanionsScreenState(
-            prefs,
-            context,
-            assistantClient,
-        )
+    val prefs = remember { context.getSharedPreferences("assistant_prefs", Context.MODE_PRIVATE) }
+    val cacheDir = remember { context.cacheDir.absolutePath }
+
+    return remember(prefs, cacheDir, assistantClient) {
+        CompanionsScreenState(prefs, cacheDir, assistantClient)
     }
 }
 
 class CompanionsScreenState(
     private val prefs: SharedPreferences,
-    private val context: Context,
+    private val cacheDir: String,
     private val assistantClient: AssistantClient
 ) {
     var companionsFetchingState by mutableStateOf<DataFetchingState>(DataFetchingState.FETCHING)
@@ -67,7 +65,7 @@ class CompanionsScreenState(
         }
         // create a cache svg file with the companion
         val companion = companions.firstOrNull { it.id == id } ?: return
-        val svgFile = File(context.cacheDir, "companion_$id.svg")
+        val svgFile = File(cacheDir, "companion_$id.svg")
         svgFile.writeText(companion.data, Charsets.UTF_8)
 
         prefs.edit().putString("companion", id).apply()
