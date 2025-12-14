@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Assistant
 import androidx.compose.material.icons.filled.HomeMini
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material.icons.filled.PhoneInTalk
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Stars
@@ -209,7 +210,25 @@ fun SettingsScreen(
                         })
                     }
                 )
-                
+
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+            ) {
+                SettingsItem(
+                    icon = Icons.Default.Pets,
+                    title = "Choose companion",
+                    subtitle = "Use a Kagi companion across the app",
+                    pos = SettingsItemPosition.SINGLE,
+                    iconBackgroundColor = MaterialTheme.colorScheme.primaryContainer,
+                    iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    onClick = {
+                        navController.navigate(Screens.COMPANIONS.route)
+                    }
+                )
             }
 
             Column(

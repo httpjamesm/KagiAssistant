@@ -48,7 +48,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -56,8 +55,8 @@ import kotlinx.coroutines.launch
 import space.httpjames.kagiassistantmaterial.AssistantThreadMessageDocument
 import space.httpjames.kagiassistantmaterial.AssistantThreadMessageRole
 import space.httpjames.kagiassistantmaterial.Citation
-import space.httpjames.kagiassistantmaterial.R
 import space.httpjames.kagiassistantmaterial.ui.message.ShimmeringMessagePlaceholder
+import space.httpjames.kagiassistantmaterial.ui.shared.DynamicAssistantIcon
 import java.net.URI
 
 sealed class ContentSegment {
@@ -232,15 +231,12 @@ fun ChatMessage(
                         )
                     } else {
                         Column {
-                            Icon(
-                                painter = painterResource(R.drawable.fetch_ball_icon),
-                                contentDescription = "",
-                                tint = Color.Unspecified,
+                            DynamicAssistantIcon(
                                 modifier = Modifier
                                     .padding(12.dp)
                                     .size(32.dp),
                             )
-
+                            
                             if (content.isEmpty()) {
                                 ShimmeringMessagePlaceholder()
                             } else {

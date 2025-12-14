@@ -13,6 +13,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import space.httpjames.kagiassistantmaterial.ui.companions.CompanionsScreen
 import space.httpjames.kagiassistantmaterial.ui.landing.LandingScreen
 import space.httpjames.kagiassistantmaterial.ui.main.MainScreen
 import space.httpjames.kagiassistantmaterial.ui.settings.SettingsScreen
@@ -21,7 +22,8 @@ import space.httpjames.kagiassistantmaterial.ui.theme.KagiAssistantTheme
 enum class Screens(val route: String) {
     LANDING("landing"),
     MAIN("main"),
-    SETTINGS("settings")
+    SETTINGS("settings"),
+    COMPANIONS("companions")
 }
 
 class MainActivity : ComponentActivity() {
@@ -80,6 +82,13 @@ class MainActivity : ComponentActivity() {
                     composable(Screens.SETTINGS.route) {
                         val assistantClient = AssistantClient(sessionToken!!)
                         SettingsScreen(
+                            assistantClient = assistantClient,
+                            navController = navController
+                        )
+                    }
+                    composable(Screens.COMPANIONS.route) {
+                        val assistantClient = AssistantClient(sessionToken!!)
+                        CompanionsScreen(
                             assistantClient = assistantClient,
                             navController = navController
                         )

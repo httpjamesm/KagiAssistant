@@ -140,6 +140,12 @@ data class QrRemoteSessionDetails(
     val token: String,
 )
 
+data class KagiCompanion(
+    val id: String,
+    val name: String,
+    val data: String,
+)
+
 class AssistantClient(
     sessionToken: String,
 ) {
@@ -240,6 +246,35 @@ class AssistantClient(
         }
 
         return Result.failure(Exception("Failed to check QR remote session"))
+    }
+
+    fun getKagiCompanions(): List<KagiCompanion> {
+        val request = Request.Builder()
+            .url("https://kagi.com/settings/companions")
+            .headers(baseHeaders)
+            .get()
+            .build()
+
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) return emptyList()
+            val body = response.body?.string() ?: return emptyList()
+
+            val doc = Jsoup.parse(body)
+
+            // get all the .friends-card
+            val cards = doc.select(".friends-card")
+
+            // for each card, construct a KagiCompanion based on the #companion_id.value, h3, and svg
+            return cards.map { card ->
+                val companionId =
+                    card.selectFirst("input[name='companion_id']")?.attr("value") ?: ""
+                val name = card.selectFirst("h3")?.text() ?: ""
+                val data = card.selectFirst("svg")?.outerHtml() ?: "<svg></svg>"
+
+                KagiCompanion(companionId, name, data)
+            }
+        }
+
     }
 
     fun checkAuthentication(): Boolean {

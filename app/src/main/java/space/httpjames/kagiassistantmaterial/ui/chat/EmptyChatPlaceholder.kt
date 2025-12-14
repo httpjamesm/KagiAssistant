@@ -5,17 +5,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import space.httpjames.kagiassistantmaterial.R
+import space.httpjames.kagiassistantmaterial.ui.shared.DynamicAssistantIcon
 
 @Composable
 fun EmptyChatPlaceholder() {
@@ -27,10 +24,7 @@ fun EmptyChatPlaceholder() {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Icon(
-                painter = painterResource(R.drawable.fetch_ball_icon),
-                contentDescription = "",
-                tint = Color.Unspecified,
+            DynamicAssistantIcon(
                 modifier = Modifier
                     .padding(12.dp)
                     .size(96.dp)

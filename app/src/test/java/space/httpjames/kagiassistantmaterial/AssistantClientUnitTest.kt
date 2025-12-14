@@ -14,7 +14,8 @@ import java.util.UUID
  * See [testing documentation](http://d.android.com/tools/testing).
  */
 
-const val SESSION_TOKEN = ""
+const val SESSION_TOKEN =
+    ""
 
 class AssistantClientUnitTest {
     val assistantClient = AssistantClient(SESSION_TOKEN)
@@ -35,13 +36,13 @@ class AssistantClientUnitTest {
         println("Authenticated")
     }
 
-    @Test
-    fun assistantClient_getThreads() {
-        println("Getting threads...")
-        val threads = assistantClient.getThreads()
-
-        println(threads)
-    }
+//    @Test
+//    fun assistantClient_getThreads() {
+//        println("Getting threads...")
+//        val threads = assistantClient.getThreads()
+//
+//        println(threads)
+//    }
 
     @Test
     fun assistantClient_fetchStream_thread() = runTest {
@@ -149,5 +150,11 @@ class AssistantClientUnitTest {
 //            wait 1s
             Thread.sleep(1000)
         }
+    }
+
+    @Test
+    fun assistantClient_getKagiCompanions() {
+        val companions = assistantClient.getKagiCompanions()
+        println(companions)
     }
 }
