@@ -23,7 +23,7 @@ fun rememberCompanionsScreenState(
     val prefs = remember { context.getSharedPreferences("assistant_prefs", Context.MODE_PRIVATE) }
     val cacheDir = remember { context.cacheDir.absolutePath }
 
-    return remember(prefs, cacheDir, assistantClient) {
+    return remember(prefs, cacheDir) {
         CompanionsScreenState(prefs, cacheDir, assistantClient)
     }
 }
