@@ -134,19 +134,13 @@ fun MainScreen(
                     },
                     onDeleteClick = {
                         scope.launch {
-                            assistantClient.fetchStream(
-                                streamId = "delete_thread",
-                                url = "https://kagi.com/assistant/thread_delete",
-                                body = """{"threads":[{"id":"${state.currentThreadId}","title":".", "saved": true, "shared": false, "tag_ids": []}]}""",
-                                extraHeaders = mapOf("Content-Type" to "application/json"),
-                                onChunk = { chunk ->
-                                    if (chunk.done) {
-                                        state.newChat()
-                                    }
-                                }
-                            )
+                            state.deleteChat()
                         }
                     },
+                    onTemporaryChatClick = {
+                        state.toggleIsTemporaryChat()
+                    },
+                    isTemporaryChat = state.isTemporaryChat
                 )
             }
         ) { innerPadding ->
@@ -174,7 +168,8 @@ fun MainScreen(
                         scope.launch {
                             state.onThreadSelected(state.currentThreadId!!)
                         }
-                    }
+                    },
+                    isTemporaryChat = state.isTemporaryChat
                 )
                 MessageCenter(
                     threadId = state.currentThreadId,

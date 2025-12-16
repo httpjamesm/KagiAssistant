@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -27,6 +28,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
+enum class ChatActionIcon {
+    NewChat,
+    TemporaryChat
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun Header(
@@ -34,9 +40,16 @@ fun Header(
     onMenuClick: () -> Unit,
     onNewChatClick: () -> Unit,
     onCopyClick: () -> Unit,
-    onDeleteClick: () -> Unit
+    onDeleteClick: () -> Unit,
+    onTemporaryChatClick: () -> Unit,
+    isTemporaryChat: Boolean,
 ) {
     var showMenu by remember { mutableStateOf(false) }
+
+    val iconState = when {
+        threadTitle != null || isTemporaryChat -> ChatActionIcon.NewChat
+        else -> ChatActionIcon.TemporaryChat
+    }
 
     TopAppBar(
         colors = TopAppBarDefaults.topAppBarColors(
@@ -91,8 +104,23 @@ fun Header(
             }
         },
         actions = {
-            IconButton(onClick = onNewChatClick, enabled = threadTitle != null) {
-                Icon(Icons.Outlined.Add, contentDescription = "New Chat")
+            IconButton(
+                onClick = if (threadTitle != null) onNewChatClick else onTemporaryChatClick,
+                enabled = true
+            ) {
+                Crossfade(
+                    targetState = iconState,
+                    label = "Chat action icon",
+                    animationSpec = tween(750)
+                ) { state ->
+                    Icon(
+                        imageVector = when (state) {
+                            ChatActionIcon.NewChat -> Icons.Outlined.Add
+                            ChatActionIcon.TemporaryChat -> Icons.Outlined.VisibilityOff
+                        },
+                        contentDescription = null,
+                    )
+                }
             }
         }
     )

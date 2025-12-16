@@ -17,7 +17,6 @@ import java.io.File
 
 @Composable
 fun DynamicAssistantIcon(
-    contentDescription: String = "Assistant icon",
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -40,13 +39,13 @@ fun DynamicAssistantIcon(
                 .decoderFactory(SvgDecoder.Factory())
                 .scale(Scale.FIT)
                 .build(),
-            contentDescription = contentDescription,
+            contentDescription = null,
             modifier = modifier
         )
     } else {
         Icon(
             painter = painterResource(R.drawable.fetch_ball_icon),
-            contentDescription = contentDescription,
+            contentDescription = null,
             tint = Color.Unspecified,
             modifier = modifier
         )

@@ -50,6 +50,7 @@ fun ChatArea(
     threadMessages: List<AssistantThreadMessage>,
     onEdit: (String) -> Unit,
     onRetryClick: () -> Unit,
+    isTemporaryChat: Boolean,
 ) {
 
     val scrollState = rememberScrollState()
@@ -153,7 +154,7 @@ fun ChatArea(
                 }
             }
         } else {
-            EmptyChatPlaceholder()
+            EmptyChatPlaceholder(isTemporaryChat)
         }
     }
 

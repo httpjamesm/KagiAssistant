@@ -70,6 +70,13 @@ class MainState(
     var messageCenterText by mutableStateOf<String>("")
         private set
 
+    var isTemporaryChat by mutableStateOf(false)
+        private set
+
+    fun toggleIsTemporaryChat() {
+        isTemporaryChat = !isTemporaryChat
+    }
+
     fun editMessage(messageId: String) {
         // find the message in the threadMessages and delete that message + every message after it, but keep all previous ones
         val index = threadMessages.indexOfFirst { it.id == messageId }
@@ -121,7 +128,28 @@ class MainState(
         }
     }
 
+    suspend fun deleteChat() {
+        assistantClient.fetchStream(
+            streamId = "delete_thread",
+            url = "https://kagi.com/assistant/thread_delete",
+            body = """{"threads":[{"id":"$currentThreadId","title":".", "saved": true, "shared": false, "tag_ids": []}]}""",
+            extraHeaders = mapOf("Content-Type" to "application/json"),
+            onChunk = { chunk ->
+                if (chunk.done) {
+                    newChat()
+                }
+            }
+        )
+    }
+
     fun newChat() {
+        if (isTemporaryChat) {
+            isTemporaryChat = false
+            coroutineScope.launch {
+                deleteChat()
+            }
+            return
+        }
         editingMessageId = null
         currentThreadId = null
         currentThreadTitle = null
