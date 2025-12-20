@@ -119,7 +119,14 @@ fun MessageCenter(
         onDispose { lifecycle.removeObserver(observer) }
     }
 
+    // set the web search default based on the profile's returned default
+    LaunchedEffect(state.getProfile()) {
+        val internetAccess = state.getProfile()?.internetAccess ?: return@LaunchedEffect
 
+        if (internetAccess != state.isSearchEnabled) {
+            state.toggleSearch()
+        }
+    }
 
     if (state.showAttachmentSizeLimitWarning) {
         AlertDialog(

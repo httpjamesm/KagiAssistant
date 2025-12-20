@@ -331,6 +331,7 @@ class AssistantClient(
                     ?.map { it.toObject<AssistantProfile>() }
                     .orEmpty()
 
+
                 val (kagi, other) = parsed.partition {
                     it.family.equals("kagi", ignoreCase = true)
                 }

@@ -12,7 +12,8 @@ data class AssistantProfile(
     @SerialName("model") val model: String,
     @SerialName("model_provider") val family: String,
     @SerialName("name") val name: String,
-    @SerialName("model_input_limit") val maxInputChars: Int = 40_000
+    @SerialName("model_input_limit") val maxInputChars: Int = 40_000,
+    @SerialName("internet_access") val internetAccess: Boolean = false,
 ) {
     val key: String get() = id ?: model
 }
