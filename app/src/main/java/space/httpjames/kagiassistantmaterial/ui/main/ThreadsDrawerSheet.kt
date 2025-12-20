@@ -32,12 +32,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import space.httpjames.kagiassistantmaterial.AssistantThread
 import space.httpjames.kagiassistantmaterial.utils.DataFetchingState
+import java.text.NumberFormat
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -141,11 +143,24 @@ private fun ThreadList(
                 Column {
                     Spacer(modifier = Modifier.height(16.dp))
                     HorizontalDivider()
-                    Text(
-                        text = category,
-                        modifier = Modifier.padding(16.dp),
-                        style = MaterialTheme.typography.titleMedium
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = category,
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            text = NumberFormat.getNumberInstance().format(threadList.size),
+                            modifier = Modifier
+                                .alpha(0.5f),
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                    }
                 }
             }
             items(threadList) { thread ->
