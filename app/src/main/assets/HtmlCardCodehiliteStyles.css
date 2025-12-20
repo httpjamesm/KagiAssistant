@@ -4,7 +4,8 @@
 }
 
 .codehilite {
-    background: #0e0e0e;
+    background: #282C34;
+    border: 1px solid #5A5A61;
     color: #f8f8f2;
     padding: 1rem;
     box-sizing: border-box;
