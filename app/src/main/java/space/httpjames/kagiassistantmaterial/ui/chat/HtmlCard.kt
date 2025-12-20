@@ -5,9 +5,9 @@ import android.content.res.Configuration
 import android.view.View
 import android.webkit.WebSettings
 import android.webkit.WebView
-import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -19,17 +19,14 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-
 
 @Composable
 fun HtmlCard(
@@ -40,23 +37,11 @@ fun HtmlCard(
 ) {
     var heightState by remember { mutableIntStateOf(0) }
 
-    val context = LocalContext.current
-
-    var previousHeight by remember { mutableIntStateOf(0) }
-    var isLoading by remember { mutableStateOf(false) }
-
-    val displayHeight = if (isLoading && heightState < previousHeight) {
-        previousHeight
-    } else {
-        heightState
-    }
-
     val animatedHeight by animateDpAsState(
-        targetValue = displayHeight.dp.coerceAtLeast(minHeight),
-        animationSpec = tween(durationMillis = 150, easing = FastOutSlowInEasing),
+        targetValue = heightState.dp.coerceAtLeast(minHeight),
+        animationSpec = spring(stiffness = Spring.StiffnessLow),
         label = "height"
     )
-
 
     Card(
         modifier = modifier
@@ -106,7 +91,6 @@ fun HtmlCard(
                                 onHeightMeasured = { h ->
                                     if (h > 50) {
                                         heightState = h
-                                        isLoading = false
                                         onHeightMeasured?.invoke()
                                     }
                                 }
@@ -123,11 +107,10 @@ fun HtmlCard(
                         }
                         setBackgroundColor(android.graphics.Color.TRANSPARENT)
 
-                        val night = (context.resources.configuration.uiMode and
-                                Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-                        val cssScheme = if (night) "dark" else "light"
-
-                        val styledHtml = wrapHtmlWithStyles(context, html, cssScheme)
+                        val night =
+                            (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+                        val styledHtml =
+                            wrapHtmlWithStyles(context, html, if (night) "dark" else "light")
                         tag = html
                         loadDataWithBaseURL(null, styledHtml, "text/html", "utf-8", null)
                     }
@@ -135,15 +118,16 @@ fun HtmlCard(
                 update = { webView ->
                     val lastHtml = webView.tag as? String
                     if (lastHtml != html) {
-                        previousHeight = heightState
-                        isLoading = true
+                        webView.tag = html
 
-                        val night = (context.resources.configuration.uiMode and
-                                Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-                        val cssScheme = if (night) "dark" else "light"
-                        val styledHtml = wrapHtmlWithStyles(context, html, cssScheme)
-                        webView.loadDataWithBaseURL(null, styledHtml, "text/html", "utf-8", null)
-                        webView.tag = html  // Update tracked content
+                        // STREAMING FIX: Instead of loadDataWithBaseURL, we inject via JS
+                        val escapedHtml = html
+                            .replace("\\", "\\\\")
+                            .replace("'", "\\'")
+                            .replace("\n", "\\n")
+                            .replace("\r", "")
+
+                        webView.evaluateJavascript("updateContent('$escapedHtml');", null)
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
@@ -151,7 +135,6 @@ fun HtmlCard(
         }
     }
 }
-
 
 private class HtmlViewerJavaScriptInterface(
     private val expectedMin: Int,
@@ -161,11 +144,9 @@ private class HtmlViewerJavaScriptInterface(
 
     @android.webkit.JavascriptInterface
     fun resize(height: Int) {
-        // Only call if height actually changed
         if (height != lastHeight) {
             lastHeight = height
-            val safeHeight = height.coerceAtLeast(expectedMin)
-            onHeightMeasured(safeHeight)
+            onHeightMeasured(height.coerceAtLeast(expectedMin))
         }
     }
 }
@@ -176,65 +157,34 @@ private fun wrapHtmlWithStyles(context: Context, html: String, cssScheme: String
     val mainStyles =
         context.assets.open("HtmlCardStyles.css").bufferedReader().use { it.readText() }
 
-
     return """
         <!DOCTYPE html>
         <html>
         <head>
             <meta charset="utf-8">
-            <script>
-                const light = '$cssScheme' === 'light';
-                document.documentElement.classList.toggle('light', light);
-                document.documentElement.classList.toggle('dark', !light);
-            </script>
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+                body { margin: 0; padding: 0; background-color: transparent; }
+                $mainStyles
+                $codehiliteStyles
+            </style>
         </head>
-        <style>
-        $mainStyles
-        $codehiliteStyles
-        </style>
-        <body>
-            $html
+        <body class="$cssScheme">
+            <div id="content-container">$html</div>
             <script>
-                let lastHeight = 0;
+                const container = document.getElementById('content-container');
 
-                const updateHeight = () => {
-                    const newHeight = Math.ceil(document.body.scrollHeight);
-                    // Only notify if height changed significantly (avoid micro-updates)
-                    if (Math.abs(newHeight - lastHeight) > 50) {
-                        lastHeight = newHeight;
-                        window.HtmlViewer.resize(newHeight);
-                    }
+                // This function updates the text without refreshing the page
+                window.updateContent = (newHtml) => {
+                    container.innerHTML = newHtml;
                 };
 
-                // Only measure on load, NOT on mutations
-                window.addEventListener('load', updateHeight);
-
-                // Longer debounce for any other changes
-                let debounceTimeout;
-                const debouncedUpdateHeight = () => {
-                    clearTimeout(debounceTimeout);
-                    debounceTimeout = setTimeout(updateHeight, 500);
-                };
-
-                // Minimal observer - only watch image loads, not all mutations
-                const imageObserver = new MutationObserver((mutations) => {
-                    const hasImages = mutations.some(m => {
-                        return m.addedNodes.length > 0 && 
-                               Array.from(m.addedNodes).some(n => n.tagName === 'IMG');
-                    });
-                    if (hasImages) {
-                        debouncedUpdateHeight();
-                    }
+                // ResizeObserver is much more performant for streaming content
+                const observer = new ResizeObserver(() => {
+                    const height = Math.ceil(document.documentElement.scrollHeight);
+                    window.HtmlViewer.resize(height);
                 });
-
-                imageObserver.observe(document.body, {
-                    childList: true,
-                    subtree: true,
-                });
-
-                // Initial update after a small delay
-                setTimeout(updateHeight, 100);
+                observer.observe(document.body);
             </script>
         </body>
         </html>
