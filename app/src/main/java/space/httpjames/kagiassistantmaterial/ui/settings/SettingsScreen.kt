@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.provider.Settings
 import android.service.voice.VoiceInteractionService
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -71,6 +72,9 @@ fun SettingsScreen(
         0
     )
 
+    BackHandler(enabled = true) {
+        navController.popBackStack()
+    }
 
     LaunchedEffect(Unit) {
         state.runInit()
