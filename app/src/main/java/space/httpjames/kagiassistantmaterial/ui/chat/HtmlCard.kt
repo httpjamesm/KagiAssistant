@@ -159,7 +159,7 @@ private fun wrapHtmlWithStyles(context: Context, html: String, cssScheme: String
 
     return """
         <!DOCTYPE html>
-        <html>
+        <html class="$cssScheme">
         <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -169,7 +169,7 @@ private fun wrapHtmlWithStyles(context: Context, html: String, cssScheme: String
                 $codehiliteStyles
             </style>
         </head>
-        <body class="$cssScheme">
+        <body>
             <div id="content-container">$html</div>
             <script>
                 const container = document.getElementById('content-container');
