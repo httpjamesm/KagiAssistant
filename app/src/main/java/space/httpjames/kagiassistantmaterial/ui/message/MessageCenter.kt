@@ -167,7 +167,7 @@ fun MessageCenter(
                     state.onTextChanged(it)
                 }
             },
-            placeholder = { Text("Ask Assistant") },
+            placeholder = { Text(if (isTemporaryChat) "Temporary chat" else "Ask Assistant") },
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f, fill = false)
