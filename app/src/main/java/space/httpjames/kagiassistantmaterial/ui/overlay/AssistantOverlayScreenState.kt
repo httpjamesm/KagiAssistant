@@ -29,6 +29,7 @@ import space.httpjames.kagiassistantmaterial.KagiPromptRequestFocus
 import space.httpjames.kagiassistantmaterial.KagiPromptRequestProfile
 import space.httpjames.kagiassistantmaterial.KagiPromptRequestThreads
 import space.httpjames.kagiassistantmaterial.MessageDto
+import space.httpjames.kagiassistantmaterial.MultipartAssistantPromptFile
 import space.httpjames.kagiassistantmaterial.StreamChunk
 import space.httpjames.kagiassistantmaterial.ui.message.AssistantProfile
 import space.httpjames.kagiassistantmaterial.ui.message.to84x84ThumbFile
@@ -257,13 +258,13 @@ class AssistantOverlayState(
 
                     val thumbnail = tempFile.to84x84ThumbFile()
 
+                    val promptFile = MultipartAssistantPromptFile(tempFile, thumbnail, "image/webp")
+
                     assistantClient.sendMultipartRequest(
                         streamId = "overlay.id",
                         url = "https://kagi.com/assistant/prompt",
                         requestBody = requestBody,
-                        files = listOf(tempFile),
-                        thumbnails = listOf(thumbnail),
-                        mimeTypes = listOf("image/webp"),
+                        files = listOf(promptFile),
                         onChunk = ::onChunk
                     )
                 } else {
