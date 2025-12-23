@@ -252,7 +252,7 @@ fun MessageCenter(
                     contentPadding = PaddingValues(horizontal = 16.dp)
                 ) {
                     Text(
-                        text = state.getProfile()?.name?.replace("(preview)", "")
+                        text = state.getProfile()?.name?.replace("(preview)", "")?.trim()
                             ?: "Select a model",
                     )
                 }
@@ -261,7 +261,7 @@ fun MessageCenter(
                         state.sendMessage(threadId)
                         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                     },
-                    enabled = text.isNotBlank(),
+                    enabled = text.isNotBlank() && state.attachmentUris.isNotEmpty(),
                     modifier = Modifier.size(56.dp),
                 ) {
                     Icon(Icons.Filled.Send, contentDescription = "Send message")
