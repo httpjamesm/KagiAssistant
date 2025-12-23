@@ -38,6 +38,7 @@ import space.httpjames.kagiassistantmaterial.KagiPromptRequestFocus
 import space.httpjames.kagiassistantmaterial.KagiPromptRequestProfile
 import space.httpjames.kagiassistantmaterial.KagiPromptRequestThreads
 import space.httpjames.kagiassistantmaterial.MessageDto
+import space.httpjames.kagiassistantmaterial.MultipartAssistantPromptFile
 import space.httpjames.kagiassistantmaterial.StreamChunk
 import space.httpjames.kagiassistantmaterial.parseMetadata
 import space.httpjames.kagiassistantmaterial.ui.main.parseReferencesHtml
@@ -403,16 +404,12 @@ class MessageCenterState(
             }
 
             if (attachmentUris.isNotEmpty()) {
-                val files = mutableListOf<File>()
-                val thumbnails = mutableListOf<File?>()
-                val mimeTypes = mutableListOf<String>()
+                val files = mutableListOf<MultipartAssistantPromptFile>()
 
                 for (uriStr in attachmentUris) {
                     val uri = uriStr.toUri()
-                    mimeTypes += context.contentResolver.getType(uri) ?: "application/octet-stream"
                     val fileName = context.getFileName(uri) ?: "Unknown"
                     val file = uri.copyToTempFile(context, "." + fileName.substringAfterLast("."))
-                    files += file
                     val thumbnail =
                         if (fileName.endsWith(".webp") || fileName.endsWith(".jpg") || fileName.endsWith(
                                 ".png"
@@ -420,7 +417,12 @@ class MessageCenterState(
                         ) {
                             file.to84x84ThumbFile()
                         } else null
-                    thumbnails += thumbnail
+                    var promptFile = MultipartAssistantPromptFile(
+                        file,
+                        thumbnail,
+                        context.contentResolver.getType(uri) ?: "application/octet-stream"
+                    )
+                    files += promptFile
 
                     // update the user message to have the document
                     localMessages = localMessages.map {
@@ -429,7 +431,7 @@ class MessageCenterState(
                                 documents = it.documents + AssistantThreadMessageDocument(
                                     id = UUID.randomUUID().toString(),
                                     name = fileName,
-                                    mime = mimeTypes.last(),
+                                    mime = promptFile.mime,
                                     data = if (thumbnail != null) BitmapFactory.decodeFile(thumbnail.absolutePath) else null,
                                 )
                             )
@@ -447,8 +449,6 @@ class MessageCenterState(
                         url = url,
                         requestBody = requestBody,
                         files = files,
-                        thumbnails = thumbnails,
-                        mimeTypes = mimeTypes,
                         onChunk = ::onChunk
                     )
                 } catch (e: Exception) {

@@ -146,6 +146,12 @@ data class KagiCompanion(
     val data: String,
 )
 
+data class MultipartAssistantPromptFile(
+    val file: File,
+    val thumbnail: File?,
+    val mime: String,
+)
+
 class AssistantClient(
     private val sessionToken: String,
 ) {
@@ -411,28 +417,30 @@ class AssistantClient(
         streamId: String,
         url: String,
         requestBody: KagiPromptRequest,
-        files: List<File>,
-        thumbnails: List<File?> = emptyList(),
-        mimeTypes: List<String> = emptyList(),
+        files: List<MultipartAssistantPromptFile>,
         onChunk: suspend (StreamChunk) -> Unit,
     ) = withContext(Dispatchers.IO) {
         val stateJson = promptAdapter.toJson(requestBody)
         val builder = MultipartBody.Builder().setType(MultipartBody.FORM)
             .addFormDataPart("state", stateJson)
 
-        files.forEachIndexed { index, file ->
-            val mime = mimeTypes.getOrNull(index) ?: "application/octet-stream"
+        files.forEach { file ->
+            val mediaType =
+                file.mime?.toMediaTypeOrNull() ?: "application/octet-stream".toMediaType()
+
             builder.addFormDataPart(
                 name = "file",
-                filename = file.name,
-                body = file.asRequestBody(mime.toMediaTypeOrNull())
+                filename = file.file.name,
+                body = file.file.asRequestBody(
+                    mediaType
+                )
             )
 
-            thumbnails.getOrNull(index)?.let { thumb ->
+            file.thumbnail?.let {
                 builder.addFormDataPart(
                     name = "__kagithumbnail",
                     filename = "blob",
-                    body = thumb.asRequestBody("image/webp".toMediaTypeOrNull())
+                    body = it.asRequestBody("image/webp".toMediaTypeOrNull())
                 )
             }
         }
