@@ -138,11 +138,13 @@ private fun ThreadList(
     onItemClick: (String) -> Unit
 ) {
     LazyColumn {
-        threads.forEach { (category, threadList) ->
+        threads.entries.forEachIndexed { index, (category, threadList) ->
             item {
                 Column {
                     Spacer(modifier = Modifier.height(16.dp))
-                    HorizontalDivider()
+                    if (index != 0) {
+                        HorizontalDivider()
+                    }
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
