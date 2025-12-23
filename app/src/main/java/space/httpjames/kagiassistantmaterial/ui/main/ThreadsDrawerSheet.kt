@@ -149,7 +149,7 @@ private fun ThreadList(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
@@ -160,7 +160,7 @@ private fun ThreadList(
                             text = NumberFormat.getNumberInstance().format(threadList.size),
                             modifier = Modifier
                                 .alpha(0.5f),
-                            style = MaterialTheme.typography.titleSmall
+                            style = MaterialTheme.typography.titleMedium
                         )
                     }
                 }
