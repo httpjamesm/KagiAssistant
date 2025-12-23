@@ -225,7 +225,7 @@ class MessageCenterState(
     fun sendMessage(threadId: String?) {
 
         var messageId = UUID.randomUUID().toString()
-        inProgressAssistantMessageId = messageId
+        inProgressAssistantMessageId = messageId + ".reply"
 
         // Local accumulator - the source of truth during streaming
         var localMessages = getThreadMessages()
@@ -241,6 +241,14 @@ class MessageCenterState(
             role = AssistantThreadMessageRole.USER,
             citations = emptyList(),
             branchIds = branchIdContext,
+        ) + AssistantThreadMessage(
+            id = inProgressAssistantMessageId!!,
+            content = "",
+            role = AssistantThreadMessageRole.ASSISTANT,
+            citations = emptyList(),
+            branchIds = branchIdContext,
+            markdownContent = "",
+            metadata = emptyMap(),
         )
         setThreadMessages(localMessages) // Direct call to the constructor param
 
@@ -344,13 +352,17 @@ class MessageCenterState(
                         }
 
                         inProgressAssistantMessageId = dto.id + ".reply"
+
+                        localMessages = localMessages.map {
+                            if (it.id == "$messageId.reply") it.copy(id = inProgressAssistantMessageId!!) else it
+                        }
+
                         messageId = dto.id
 
                         val preparedCitations = parseReferencesHtml(dto.references_html)
 
                         // Update local accumulator
-                        val exists = localMessages.any { it.id == inProgressAssistantMessageId }
-                        localMessages = if (exists) {
+                        localMessages =
                             localMessages.map {
                                 if (it.id == inProgressAssistantMessageId) it.copy(
                                     content = dto.reply,
@@ -359,18 +371,7 @@ class MessageCenterState(
                                     metadata = parseMetadata(dto.metadata)
                                 ) else it
                             }
-                        } else {
-                            localMessages + AssistantThreadMessage(
-                                id = inProgressAssistantMessageId!!,
-                                content = dto.reply,
-                                role = AssistantThreadMessageRole.ASSISTANT,
-                                citations = preparedCitations,
-                                branchIds = localMessages.takeLast(1).firstOrNull()?.branchIds
-                                    ?: emptyList(),
-                                markdownContent = dto.md,
-                                metadata = parseMetadata(dto.metadata),
-                            )
-                        }
+
 
                         coroutineScope.launch(Dispatchers.Main.immediate) {
                             haptics.performHapticFeedback(HapticFeedbackType.LongPress)

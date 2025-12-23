@@ -48,6 +48,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -223,11 +224,13 @@ fun ChatMessage(
                 ) {
                     if (isMe) {
                         Text(
-                            text = content,
+                            text = content.ifBlank { "Empty message" },
                             modifier = Modifier
                                 .padding(12.dp)
-                                .widthIn(max = this@BoxWithConstraints.maxWidth * 0.7f),
-                            style = MaterialTheme.typography.bodyMedium
+                                .widthIn(max = this@BoxWithConstraints.maxWidth * 0.7f)
+                                .alpha(if (content.isBlank()) 0.8f else 1f),
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontStyle = if (content.isBlank()) FontStyle.Italic else null,
                         )
                     } else {
                         Column {
@@ -236,7 +239,7 @@ fun ChatMessage(
                                     .padding(12.dp)
                                     .size(32.dp),
                             )
-                            
+
                             if (content.isEmpty()) {
                                 ShimmeringMessagePlaceholder()
                             } else {

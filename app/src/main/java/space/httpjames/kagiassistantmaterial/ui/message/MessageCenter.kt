@@ -261,7 +261,7 @@ fun MessageCenter(
                         state.sendMessage(threadId)
                         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                     },
-                    enabled = text.isNotBlank() && state.attachmentUris.isNotEmpty(),
+                    enabled = text.isNotBlank() || state.attachmentUris.isNotEmpty(),
                     modifier = Modifier.size(56.dp),
                 ) {
                     Icon(Icons.Filled.Send, contentDescription = "Send message")
