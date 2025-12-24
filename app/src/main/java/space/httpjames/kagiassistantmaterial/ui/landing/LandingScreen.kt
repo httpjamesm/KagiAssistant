@@ -30,6 +30,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,16 +48,31 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import space.httpjames.kagiassistantmaterial.AssistantClient
 import space.httpjames.kagiassistantmaterial.R
+import space.httpjames.kagiassistantmaterial.ui.viewmodel.AssistantViewModelFactory
+import space.httpjames.kagiassistantmaterial.ui.viewmodel.LandingViewModel
 import kotlin.math.abs
 
 @Preview
 @Composable
 fun LandingScreen(onLoginSuccess: (String) -> Unit = {}) {
-    val state = rememberLandingScreenState()
     val context = LocalContext.current
+    val prefs =
+        context.getSharedPreferences("assistant_prefs", android.content.Context.MODE_PRIVATE)
+    val cacheDir = context.cacheDir.absolutePath
+    val sessionToken = prefs.getString("session_token", "") ?: ""
+
+    // For preview mode, we need a minimal AssistantClient - in real usage this will be provided
+    val assistantClient = remember { AssistantClient(sessionToken) }
+    val viewModel: LandingViewModel = viewModel(
+        factory = AssistantViewModelFactory(assistantClient, prefs, cacheDir)
+    )
+    val uiState by viewModel.uiState.collectAsState()
+
     val coroutineScope = rememberCoroutineScope()
 
     var waitingOnAuth: Boolean by remember { mutableStateOf(false) }
@@ -97,7 +113,7 @@ fun LandingScreen(onLoginSuccess: (String) -> Unit = {}) {
                     enabled = !waitingOnAuth,
                     onClick = {
                         coroutineScope.launch {
-                            val data = state.startCeremony()
+                            val data = viewModel.startCeremony()
                             waitingOnAuth = true
                             if (data.isSuccess) {
                                 val token = data.getOrNull()
@@ -106,6 +122,8 @@ fun LandingScreen(onLoginSuccess: (String) -> Unit = {}) {
                                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
                                     context.startActivity(intent)
                                 }
+                            } else {
+                                waitingOnAuth = false
                             }
                         }
                     },
@@ -132,7 +150,7 @@ fun LandingScreen(onLoginSuccess: (String) -> Unit = {}) {
     LaunchedEffect(Unit) {
         while (true) {
             delay(1_000L)          // wait 1 s
-            val token = state.checkCeremony()
+            val token = viewModel.checkCeremony()
             if (token != null) {
                 onLoginSuccess(token)
                 break

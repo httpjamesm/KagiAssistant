@@ -29,10 +29,12 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import org.jsoup.Jsoup
 import space.httpjames.kagiassistantmaterial.AssistantClient
 import space.httpjames.kagiassistantmaterial.AssistantThreadMessage
 import space.httpjames.kagiassistantmaterial.AssistantThreadMessageDocument
 import space.httpjames.kagiassistantmaterial.AssistantThreadMessageRole
+import space.httpjames.kagiassistantmaterial.Citation
 import space.httpjames.kagiassistantmaterial.KagiPromptRequest
 import space.httpjames.kagiassistantmaterial.KagiPromptRequestFocus
 import space.httpjames.kagiassistantmaterial.KagiPromptRequestProfile
@@ -41,7 +43,6 @@ import space.httpjames.kagiassistantmaterial.MessageDto
 import space.httpjames.kagiassistantmaterial.MultipartAssistantPromptFile
 import space.httpjames.kagiassistantmaterial.StreamChunk
 import space.httpjames.kagiassistantmaterial.parseMetadata
-import space.httpjames.kagiassistantmaterial.ui.main.parseReferencesHtml
 import java.io.File
 import java.io.FileOutputStream
 import java.util.UUID
@@ -512,3 +513,8 @@ fun Context.getFileName(uri: Uri): String? {
 
     return null
 }
+
+fun parseReferencesHtml(html: String): List<Citation> =
+    Jsoup.parse(html)
+        .select("ol[data-ref-list] > li > a[href]")
+        .map { a -> Citation(url = a.attr("abs:href"), title = a.text()) }

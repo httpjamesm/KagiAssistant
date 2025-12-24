@@ -40,6 +40,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,10 +51,13 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import kotlinx.coroutines.launch
 import space.httpjames.kagiassistantmaterial.AssistantClient
 import space.httpjames.kagiassistantmaterial.Screens
+import space.httpjames.kagiassistantmaterial.ui.viewmodel.AssistantViewModelFactory
+import space.httpjames.kagiassistantmaterial.ui.viewmodel.SettingsViewModel
 import space.httpjames.kagiassistantmaterial.utils.DataFetchingState
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -61,10 +66,17 @@ fun SettingsScreen(
     assistantClient: AssistantClient,
     navController: NavController,
 ) {
-    val state = rememberSettingsScreenState(assistantClient)
+    val context = LocalContext.current
+    val prefs = context.getSharedPreferences("assistant_prefs", android.content.Context.MODE_PRIVATE)
+    val cacheDir = context.cacheDir.absolutePath
+
+    val viewModel: SettingsViewModel = viewModel(
+        factory = AssistantViewModelFactory(assistantClient, prefs, cacheDir)
+    )
+    val uiState by viewModel.uiState.collectAsState()
+
     val coroutineScope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
-    val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
 
     val packageInfo = context.packageManager.getPackageInfo(
@@ -77,7 +89,7 @@ fun SettingsScreen(
     }
 
     LaunchedEffect(Unit) {
-        state.runInit()
+        viewModel.runInit()
     }
 
     Scaffold(
@@ -118,17 +130,17 @@ fun SettingsScreen(
                     .padding(horizontal = 16.dp),
                 contentAlignment = Alignment.Center
             ) {
-                when (state.emailAddressCallState) {
+                when (uiState.emailAddressCallState) {
                     DataFetchingState.FETCHING -> CircularProgressIndicator(
                         modifier = Modifier.size(48.dp)
                     )
 
                     DataFetchingState.OK -> {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            InitialsAvatar(char = state.emailAddress.firstOrNull() ?: 'K')
+                            InitialsAvatar(char = uiState.emailAddress.firstOrNull() ?: 'K')
                             Spacer(modifier = Modifier.height(16.dp))
                             Text(
-                                text = state.emailAddress,
+                                text = uiState.emailAddress,
                                 textAlign = TextAlign.Center,
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Medium,
@@ -185,20 +197,20 @@ fun SettingsScreen(
                     iconBackgroundColor = MaterialTheme.colorScheme.primaryContainer,
                     iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
                     rightSide = {
-                        Switch(checked = state.useMiniOverlay, onCheckedChange = {
-                            state.toggleUseMiniOverlay()
+                        Switch(checked = uiState.useMiniOverlay, onCheckedChange = {
+                            viewModel.toggleUseMiniOverlay()
                         })
                     }
                 )
                 SettingsItem(
                     icon = Icons.Default.Assistant,
                     title = "Assistant model",
-                    subtitle = "Using ${state.selectedAssistantModelName ?: "..."}",
+                    subtitle = "Using ${uiState.selectedAssistantModelName ?: "..."}",
                     pos = SettingsItemPosition.MIDDLE,
                     iconBackgroundColor = MaterialTheme.colorScheme.primaryContainer,
                     iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
                     onClick = {
-                        state.showAssistantModelChooser()
+                        viewModel.showAssistantModelChooser()
                     }
                 )
                 SettingsItem(
@@ -209,8 +221,8 @@ fun SettingsScreen(
                     iconBackgroundColor = MaterialTheme.colorScheme.primaryContainer,
                     iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
                     rightSide = {
-                        Switch(checked = state.autoSpeakReplies, onCheckedChange = {
-                            state.toggleAutoSpeakReplies()
+                        Switch(checked = uiState.autoSpeakReplies, onCheckedChange = {
+                            viewModel.toggleAutoSpeakReplies()
                         })
                     }
                 )
@@ -248,8 +260,8 @@ fun SettingsScreen(
                     iconBackgroundColor = MaterialTheme.colorScheme.primaryContainer,
                     iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
                     rightSide = {
-                        Switch(checked = state.openKeyboardAutomatically, onCheckedChange = {
-                            state.toggleOpenKeyboardAutomatically()
+                        Switch(checked = uiState.openKeyboardAutomatically, onCheckedChange = {
+                            viewModel.toggleOpenKeyboardAutomatically()
                         })
                     }
                 )
@@ -289,7 +301,7 @@ fun SettingsScreen(
                         coroutineScope.launch {
                             val loggedOut = assistantClient.deleteSession()
                             if (loggedOut) {
-                                state.clearAllPrefs()
+                                viewModel.clearAllPrefs()
                                 navController.navigate(Screens.LANDING.route)
                             }
                         }
@@ -331,14 +343,14 @@ fun SettingsScreen(
         }
     }
 
-    if (state.showAssistantModelChooserModal) {
+    if (uiState.showAssistantModelChooserModal) {
         AssistantModelChooserModal(
-            profiles = state.profiles,
-            onDismiss = { state.hideAssistantModelChooser() },
+            profiles = uiState.profiles,
+            onDismiss = { viewModel.hideAssistantModelChooser() },
             onModelSelected = {
-                state.saveAssistantModel(it)
+                viewModel.saveAssistantModel(it)
             },
-            selectedKey = state.selectedAssistantModel
+            selectedKey = uiState.selectedAssistantModel
         )
     }
 }

@@ -21,12 +21,18 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import space.httpjames.kagiassistantmaterial.AssistantClient
+import space.httpjames.kagiassistantmaterial.ui.viewmodel.AssistantViewModelFactory
+import space.httpjames.kagiassistantmaterial.ui.viewmodel.CompanionsViewModel
 import space.httpjames.kagiassistantmaterial.utils.DataFetchingState
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -35,10 +41,17 @@ fun CompanionsScreen(
     assistantClient: AssistantClient,
     navController: NavController,
 ) {
-    val state = rememberCompanionsScreenState(assistantClient)
+    val context = LocalContext.current
+    val prefs = context.getSharedPreferences("assistant_prefs", android.content.Context.MODE_PRIVATE)
+    val cacheDir = context.cacheDir.absolutePath
+
+    val viewModel: CompanionsViewModel = viewModel(
+        factory = AssistantViewModelFactory(assistantClient, prefs, cacheDir)
+    )
+    val uiState by viewModel.uiState.collectAsState()
 
     LaunchedEffect(Unit) {
-        state.runInit()
+        viewModel.runInit()
     }
 
     Scaffold(
@@ -66,7 +79,7 @@ fun CompanionsScreen(
         }
     ) { innerPadding ->
         Box(modifier = Modifier.padding(innerPadding)) {
-            if (state.companionsFetchingState == DataFetchingState.FETCHING) {
+            if (uiState.companionsFetchingState == DataFetchingState.FETCHING) {
                 Row(
                     modifier = Modifier.fillMaxSize(),
                     horizontalArrangement = Arrangement.Center,
@@ -74,7 +87,7 @@ fun CompanionsScreen(
                 ) {
                     CircularProgressIndicator()
                 }
-            } else if (state.companionsFetchingState == DataFetchingState.OK) {
+            } else if (uiState.companionsFetchingState == DataFetchingState.OK) {
                 LazyVerticalGrid(
                     columns = GridCells.Adaptive(minSize = 140.dp),
                     modifier = Modifier.fillMaxSize(),
@@ -82,15 +95,15 @@ fun CompanionsScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(state.companions.size) { item ->
+                    items(uiState.companions.size) { item ->
                         CompanionItem(
-                            state.companions[item],
-                            state.companions[item].id == state.selectedCompanion,
+                            uiState.companions[item],
+                            uiState.companions[item].id == uiState.selectedCompanion,
                             onSelect = {
-                                if (state.companions[item].id == state.selectedCompanion) {
-                                    state.setCompanion(null)
+                                if (uiState.companions[item].id == uiState.selectedCompanion) {
+                                    viewModel.setCompanion(null)
                                 } else {
-                                    state.setCompanion(state.companions[item].id)
+                                    viewModel.setCompanion(uiState.companions[item].id)
                                 }
                             })
                     }
