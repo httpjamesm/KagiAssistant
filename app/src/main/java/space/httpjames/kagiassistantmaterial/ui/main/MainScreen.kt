@@ -54,7 +54,8 @@ fun MainScreen(
     val viewModel: MainViewModel = viewModel(
         factory = AssistantViewModelFactory(assistantClient, prefs, cacheDir)
     )
-    val uiState by viewModel.uiState.collectAsState()
+    val threadsState by viewModel.threadsState.collectAsState()
+    val messagesState by viewModel.messagesState.collectAsState()
 
     val scope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(DrawerValue.Closed)
@@ -86,8 +87,8 @@ fun MainScreen(
 
     BackHandler(
         enabled = !drawerState.isOpen
-                && uiState.isTemporaryChat
-                && uiState.currentThreadId == null
+                && messagesState.isTemporaryChat
+                && threadsState.currentThreadId == null
                 && !imeVisible
     ) {
         viewModel.toggleIsTemporaryChat()
@@ -97,7 +98,7 @@ fun MainScreen(
     // Only handle back for "clear chat" when keyboard is NOT visible
     BackHandler(
         enabled = !drawerState.isOpen
-                && uiState.currentThreadId != null
+                && threadsState.currentThreadId != null
                 && !imeVisible
     ) {
         viewModel.newChat()
@@ -113,14 +114,14 @@ fun MainScreen(
         drawerState = drawerState,
         drawerContent = {
             ThreadsDrawerSheet(
-                threads = uiState.threads,
+                threads = threadsState.threads,
                 onThreadSelected = {
                     scope.launch {
                         viewModel.onThreadSelected(it)
                         drawerState.close()
                     }
                 },
-                callState = uiState.threadsCallState,
+                callState = threadsState.callState,
                 onSettingsClick = {
                     scope.launch {
                         navController.navigate(Screens.SETTINGS.route)
@@ -138,7 +139,7 @@ fun MainScreen(
             modifier = modifier.fillMaxSize(),
             topBar = {
                 Header(
-                    threadTitle = uiState.currentThreadTitle,
+                    threadTitle = messagesState.currentThreadTitle,
                     onMenuClick = { scope.launch { drawerState.open() } },
                     onNewChatClick = { viewModel.newChat() },
                     onCopyClick = {
@@ -147,7 +148,7 @@ fun MainScreen(
                                 ClipEntry(
                                     ClipData.newPlainText(
                                         "Thread title",
-                                        uiState.currentThreadTitle
+                                        messagesState.currentThreadTitle
                                     )
                                 )
                             )
@@ -161,7 +162,7 @@ fun MainScreen(
                     onTemporaryChatClick = {
                         viewModel.toggleIsTemporaryChat()
                     },
-                    isTemporaryChat = uiState.isTemporaryChat
+                    isTemporaryChat = messagesState.isTemporaryChat
                 )
             }
         ) { innerPadding ->
@@ -169,7 +170,7 @@ fun MainScreen(
                 modifier = Modifier.fillMaxSize()
             ) {
                 ChatArea(
-                    threadMessages = uiState.threadMessages,
+                    threadMessages = messagesState.messages,
                     modifier = Modifier
                         .padding(
                             PaddingValues(
@@ -180,20 +181,20 @@ fun MainScreen(
                             )
                         )
                         .weight(1f),
-                    threadMessagesCallState = uiState.threadMessagesCallState,
-                    currentThreadId = uiState.currentThreadId,
+                    threadMessagesCallState = messagesState.callState,
+                    currentThreadId = threadsState.currentThreadId,
                     onEdit = {
                         viewModel.editMessage(it)
                     },
                     onRetryClick = {
                         scope.launch {
-                            viewModel.onThreadSelected(uiState.currentThreadId!!)
+                            viewModel.onThreadSelected(threadsState.currentThreadId!!)
                         }
                     },
-                    isTemporaryChat = uiState.isTemporaryChat
+                    isTemporaryChat = messagesState.isTemporaryChat
                 )
                 MessageCenter(
-                    threadId = uiState.currentThreadId,
+                    threadId = threadsState.currentThreadId,
                     assistantClient = assistantClient,
                     viewModel = viewModel,
                     coroutineScope = scope

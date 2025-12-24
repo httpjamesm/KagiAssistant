@@ -54,10 +54,10 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.CoroutineScope
 import space.httpjames.kagiassistantmaterial.AssistantClient
-import space.httpjames.kagiassistantmaterial.AssistantThreadMessage
 import space.httpjames.kagiassistantmaterial.ui.chat.cleanup.ChatCleanupManager
 import space.httpjames.kagiassistantmaterial.ui.main.ModelBottomSheet
 import space.httpjames.kagiassistantmaterial.ui.viewmodel.MainViewModel
+import space.httpjames.kagiassistantmaterial.ui.viewmodel.MessageCenterUiState
 
 @Composable
 fun MessageCenter(
@@ -67,7 +67,9 @@ fun MessageCenter(
     viewModel: MainViewModel,
     coroutineScope: CoroutineScope,
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val threadsState by viewModel.threadsState.collectAsState()
+    val messagesState by viewModel.messagesState.collectAsState()
+    val messageCenterState by viewModel.messageCenterState.collectAsState()
     val haptics = LocalHapticFeedback.current
 
     val textFieldShape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp)
@@ -80,8 +82,8 @@ fun MessageCenter(
 
     val context = LocalContext.current
 
-    LaunchedEffect(threadId, uiState.threadMessages.size, uiState.isTemporaryChat) {
-        if (uiState.isTemporaryChat && uiState.threadMessages.isNotEmpty() && threadId != null) {
+    LaunchedEffect(threadId, messagesState.messages.size, messagesState.isTemporaryChat) {
+        if (messagesState.isTemporaryChat && messagesState.messages.isNotEmpty() && threadId != null) {
             ChatCleanupManager.schedule(context, threadId, assistantClient.getSessionToken())
         }
     }
@@ -105,12 +107,12 @@ fun MessageCenter(
     LaunchedEffect(viewModel.getProfile()) {
         val internetAccess = viewModel.getProfile()?.internetAccess ?: return@LaunchedEffect
 
-        if (internetAccess != uiState.isSearchEnabled) {
+        if (internetAccess != messageCenterState.isSearchEnabled) {
             viewModel.toggleSearch()
         }
     }
 
-    if (uiState.showAttachmentSizeLimitWarning) {
+    if (messageCenterState.showAttachmentSizeLimitWarning) {
         AlertDialog(
             onDismissRequest = { viewModel.dismissAttachmentSizeLimitWarning() },
             title = { Text("Attachment Limit Exceeded") },
@@ -133,14 +135,14 @@ fun MessageCenter(
             .padding(bottom = 16.dp)
             .fillMaxWidth()
     ) {
-        if (uiState.attachmentUris.isNotEmpty()) {
+        if (messageCenterState.attachmentUris.isNotEmpty()) {
             Row(
                 modifier = Modifier
                     .padding(8.dp)
                     .horizontalScroll(attachmentPreviewsScrollState),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                uiState.attachmentUris.forEach { uri ->
+                messageCenterState.attachmentUris.forEach { uri ->
                     key(uri) {
                         AttachmentPreview(
                             uri = uri,
@@ -150,13 +152,13 @@ fun MessageCenter(
             }
         }
         TextField(
-            value = uiState.messageCenterText,
+            value = messageCenterState.text,
             onValueChange = {
                 if (it.length <= (viewModel.getProfile()?.maxInputChars ?: 40000)) {
                     viewModel.onMessageCenterTextChanged(it)
                 }
             },
-            placeholder = { Text(if (uiState.isTemporaryChat) "Temporary chat" else "Ask Assistant") },
+            placeholder = { Text(if (messagesState.isTemporaryChat) "Temporary chat" else "Ask Assistant") },
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f, fill = false)
@@ -190,11 +192,11 @@ fun MessageCenter(
                 }
 
                 val backgroundColor by animateColorAsState(
-                    if (uiState.isSearchEnabled) MaterialTheme.colorScheme.primary else Color.Transparent,
+                    if (messageCenterState.isSearchEnabled) MaterialTheme.colorScheme.primary else Color.Transparent,
                     label = "Search button background"
                 )
                 val contentColor by animateColorAsState(
-                    if (uiState.isSearchEnabled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                    if (messageCenterState.isSearchEnabled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
                     label = "Search button content"
                 )
 
@@ -217,7 +219,7 @@ fun MessageCenter(
                         contentDescription = "Toggle internet access",
                         tint = contentColor
                     )
-                    if (uiState.isSearchEnabled) {
+                    if (messageCenterState.isSearchEnabled) {
                         Text("Internet", color = contentColor)
                     }
                 }
@@ -243,7 +245,7 @@ fun MessageCenter(
                         viewModel.sendMessage(context)
                         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                     },
-                    enabled = uiState.messageCenterText.isNotBlank() || uiState.attachmentUris.isNotEmpty(),
+                    enabled = messageCenterState.text.isNotBlank() || messageCenterState.attachmentUris.isNotEmpty(),
                     modifier = Modifier.size(56.dp),
                 ) {
                     Icon(Icons.Filled.Send, contentDescription = "Send message")
@@ -252,7 +254,7 @@ fun MessageCenter(
         }
     }
 
-    if (uiState.showModelBottomSheet) {
+    if (messageCenterState.showModelBottomSheet) {
         ModelBottomSheet(
             assistantClient = assistantClient,
             coroutineScope = coroutineScope,
@@ -260,7 +262,7 @@ fun MessageCenter(
         )
     }
 
-    if (uiState.showAttachmentBottomSheet) {
+    if (messageCenterState.showAttachmentBottomSheet) {
         AttachmentBottomSheet(
             onDismissRequest = { viewModel.onDismissAttachmentBottomSheet() },
             onAttachment = { viewModel.addAttachmentUri(context, it) })

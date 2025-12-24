@@ -50,22 +50,35 @@ import java.util.UUID
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 
+// ========== Separate UI State Classes ==========
+
 /**
- * UI state for the Main screen
+ * UI state for thread list management
  */
-data class MainUiState(
-    val threadsCallState: DataFetchingState = DataFetchingState.FETCHING,
+data class ThreadsUiState(
+    val callState: DataFetchingState = DataFetchingState.FETCHING,
     val threads: Map<String, List<AssistantThread>> = emptyMap(),
-    val currentThreadId: String? = null,
-    val threadMessagesCallState: DataFetchingState = DataFetchingState.OK,
-    val threadMessages: List<AssistantThreadMessage> = emptyList(),
+    val currentThreadId: String? = null
+)
+
+/**
+ * UI state for message list and thread operations
+ */
+data class MessagesUiState(
+    val callState: DataFetchingState = DataFetchingState.OK,
+    val messages: List<AssistantThreadMessage> = emptyList(),
     val currentThreadTitle: String? = null,
     val editingMessageId: String? = null,
-    val messageCenterText: String = "",
     val isTemporaryChat: Boolean = false,
-    // MessageCenter-specific state
+    val inProgressAssistantMessageId: String? = null
+)
+
+/**
+ * UI state for MessageCenter component
+ */
+data class MessageCenterUiState(
+    val text: String = "",
     val isSearchEnabled: Boolean = false,
-    val inProgressAssistantMessageId: String? = null,
     val showModelBottomSheet: Boolean = false,
     val profiles: List<AssistantProfile> = emptyList(),
     val showAttachmentBottomSheet: Boolean = false,
@@ -75,103 +88,113 @@ data class MainUiState(
 
 /**
  * ViewModel for the Main screen.
- * Manages thread and message state, business logic for chat operations.
+ * Manages thread, message, and message center state using separate StateFlows.
  */
 class MainViewModel(
     private val repository: AssistantRepository,
     private val prefs: SharedPreferences
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(MainUiState())
-    val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
+    // Threads state
+    private val _threadsState = MutableStateFlow(ThreadsUiState())
+    val threadsState: StateFlow<ThreadsUiState> = _threadsState.asStateFlow()
+
+    // Messages state
+    private val _messagesState = MutableStateFlow(MessagesUiState())
+    val messagesState: StateFlow<MessagesUiState> = _messagesState.asStateFlow()
+
+    // MessageCenter state
+    private val _messageCenterState = MutableStateFlow(MessageCenterUiState())
+    val messageCenterState: StateFlow<MessageCenterUiState> = _messageCenterState.asStateFlow()
 
     init {
         restoreThread()
         fetchProfiles()
     }
 
+    // ========== Thread operations ==========
+
     fun fetchThreads() {
         viewModelScope.launch {
             try {
-                _uiState.update { it.copy(threadsCallState = DataFetchingState.FETCHING) }
+                _threadsState.update { it.copy(callState = DataFetchingState.FETCHING) }
                 val threads = repository.getThreads()
-                _uiState.update {
+                _threadsState.update {
                     it.copy(
                         threads = threads,
-                        threadsCallState = DataFetchingState.OK
+                        callState = DataFetchingState.OK
                     )
                 }
             } catch (e: Exception) {
                 println("Error fetching threads: ${e.message}")
                 e.printStackTrace()
-                _uiState.update { it.copy(threadsCallState = DataFetchingState.ERRORED) }
+                _threadsState.update { it.copy(callState = DataFetchingState.ERRORED) }
             }
         }
     }
 
     fun deleteChat() {
         viewModelScope.launch {
-            val threadId = _uiState.value.currentThreadId ?: return@launch
+            val threadId = _threadsState.value.currentThreadId ?: return@launch
             repository.deleteChat(threadId) { newChat() }
         }
     }
 
     fun newChat() {
-        val currentState = _uiState.value
-        if (currentState.isTemporaryChat) {
-            _uiState.update { it.copy(isTemporaryChat = false) }
+        if (_messagesState.value.isTemporaryChat) {
+            _messagesState.update { it.copy(isTemporaryChat = false) }
             deleteChat()
             return
         }
-        _uiState.update {
+        _messagesState.update {
             it.copy(
                 editingMessageId = null,
-                currentThreadId = null,
-                currentThreadTitle = null,
-                threadMessages = emptyList()
+                messages = emptyList(),
+                currentThreadTitle = null
             )
         }
+        _threadsState.update { it.copy(currentThreadId = null) }
         prefs.edit().remove("savedThreadId").apply()
     }
 
     fun toggleIsTemporaryChat() {
-        _uiState.update { it.copy(isTemporaryChat = !it.isTemporaryChat) }
+        _messagesState.update { it.copy(isTemporaryChat = !it.isTemporaryChat) }
     }
 
     fun editMessage(messageId: String) {
-        val currentMessages = _uiState.value.threadMessages
+        val currentMessages = _messagesState.value.messages
         val index = currentMessages.indexOfFirst { it.id == messageId }
 
         if (index != -1) {
             val oldContent = currentMessages[index].content
             if (index == 0) {
                 newChat()
-                _uiState.update { it.copy(messageCenterText = oldContent) }
+                _messageCenterState.update { it.copy(text = oldContent) }
                 return
             }
 
-            _uiState.update {
+            _messagesState.update {
                 it.copy(
                     editingMessageId = messageId,
-                    threadMessages = currentMessages.subList(0, index),
-                    messageCenterText = oldContent
+                    messages = currentMessages.subList(0, index)
                 )
             }
+            _messageCenterState.update { it.copy(text = oldContent) }
         }
     }
 
     fun onThreadSelected(threadId: String) {
-        _uiState.update {
+        _threadsState.update {
             it.copy(
-                currentThreadId = threadId,
-                currentThreadTitle = null
+                currentThreadId = threadId
             )
         }
+        _messagesState.update { it.copy(currentThreadTitle = null) }
         prefs.edit().putString("savedThreadId", threadId).apply()
 
         viewModelScope.launch {
             try {
-                _uiState.update { it.copy(threadMessagesCallState = DataFetchingState.FETCHING) }
+                _messagesState.update { it.copy(callState = DataFetchingState.FETCHING) }
                 repository.fetchStream(
                     streamId = "8ce77b1b-35c5-4262-8821-af3b33d1cf0f",
                     url = "https://kagi.com/assistant/thread_open",
@@ -183,7 +206,8 @@ class MainViewModel(
                             "thread.json" -> {
                                 val thread = Json.parseToJsonElement(chunk.data)
                                 val title = thread.jsonObject["title"]?.jsonPrimitive?.content
-                                _uiState.update { it.copy(currentThreadTitle = title) }
+                                _threadsState.update { it.copy(currentThreadId = threadId) }
+                                _messagesState.update { it.copy(currentThreadTitle = title) }
                             }
 
                             "messages.json" -> {
@@ -225,10 +249,10 @@ class MainViewModel(
                                         )
                                     )
                                 }
-                                _uiState.update {
+                                _messagesState.update {
                                     it.copy(
-                                        threadMessages = messages,
-                                        threadMessagesCallState = DataFetchingState.OK
+                                        messages = messages,
+                                        callState = DataFetchingState.OK
                                     )
                                 }
                             }
@@ -237,51 +261,48 @@ class MainViewModel(
                 )
             } catch (e: Exception) {
                 e.printStackTrace()
-                _uiState.update { it.copy(threadMessagesCallState = DataFetchingState.ERRORED) }
+                _messagesState.update { it.copy(callState = DataFetchingState.ERRORED) }
             }
         }
     }
 
     fun restoreThread() {
         val savedId = prefs.getString("savedThreadId", null)
-        if (savedId != null && savedId != _uiState.value.currentThreadId) {
+        if (savedId != null && savedId != _threadsState.value.currentThreadId) {
             onThreadSelected(savedId)
         }
     }
 
-    // Public setters for MessageCenter to update state
+    // ========== Message state getters/setters ==========
+
     fun setEditingMessageId(id: String?) {
-        _uiState.update { it.copy(editingMessageId = id) }
-    }
-
-    fun setMessageCenterText(text: String) {
-        _uiState.update { it.copy(messageCenterText = text) }
-    }
-
-    fun setCurrentThreadId(id: String?) {
-        _uiState.update { it.copy(currentThreadId = id) }
+        _messagesState.update { it.copy(editingMessageId = id) }
     }
 
     fun setCurrentThreadTitle(title: String) {
-        _uiState.update { it.copy(currentThreadTitle = title) }
+        _messagesState.update { it.copy(currentThreadTitle = title) }
     }
 
     fun setThreadMessages(messages: List<AssistantThreadMessage>) {
-        _uiState.update { it.copy(threadMessages = messages) }
+        _messagesState.update { it.copy(messages = messages) }
     }
 
-    fun getEditingMessageId(): String? = _uiState.value.editingMessageId
-    fun getMessageCenterText(): String = _uiState.value.messageCenterText
-    fun getThreadMessages(): List<AssistantThreadMessage> = _uiState.value.threadMessages
-    fun getCurrentThreadId(): String? = _uiState.value.currentThreadId
-    fun getIsTemporaryChat(): Boolean = _uiState.value.isTemporaryChat
+    fun setCurrentThreadId(id: String?) {
+        _threadsState.update { it.copy(currentThreadId = id) }
+    }
+
+    fun getEditingMessageId(): String? = _messagesState.value.editingMessageId
+    fun getThreadMessages(): List<AssistantThreadMessage> = _messagesState.value.messages
+    fun getCurrentThreadId(): String? = _threadsState.value.currentThreadId
+    fun getIsTemporaryChat(): Boolean = _messagesState.value.isTemporaryChat
+    fun getCurrentThreadTitle(): String? = _messagesState.value.currentThreadTitle
 
     // ========== MessageCenter functions ==========
 
     private fun fetchProfiles() {
         viewModelScope.launch {
             try {
-                _uiState.update { it.copy(profiles = repository.getProfiles()) }
+                _messageCenterState.update { it.copy(profiles = repository.getProfiles()) }
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -292,8 +313,8 @@ class MainViewModel(
         get() = prefs.getBoolean("open_keyboard_automatically", false)
 
     fun restoreText() {
-        _uiState.update {
-            it.copy(messageCenterText = prefs.getString("savedText", "") ?: "")
+        _messageCenterState.update {
+            it.copy(text = prefs.getString("savedText", "") ?: "")
         }
     }
 
@@ -302,40 +323,40 @@ class MainViewModel(
     }
 
     fun onMessageCenterTextChanged(newText: String) {
-        _uiState.update { it.copy(messageCenterText = newText) }
+        _messageCenterState.update { it.copy(text = newText) }
         saveText(newText)
     }
 
     fun toggleSearch() {
-        _uiState.update { it.copy(isSearchEnabled = !it.isSearchEnabled) }
+        _messageCenterState.update { it.copy(isSearchEnabled = !it.isSearchEnabled) }
     }
 
     fun openModelBottomSheet() {
-        _uiState.update { it.copy(showModelBottomSheet = true) }
+        _messageCenterState.update { it.copy(showModelBottomSheet = true) }
     }
 
     fun dismissModelBottomSheet() {
-        _uiState.update { it.copy(showModelBottomSheet = false) }
+        _messageCenterState.update { it.copy(showModelBottomSheet = false) }
     }
 
     fun getProfile(): AssistantProfile? {
         val key = prefs.getString("profile", null) ?: return null
-        return _uiState.value.profiles.find { it.key == key }
+        return _messageCenterState.value.profiles.find { it.key == key }
     }
 
     fun addAttachmentUri(context: Context, uri: String) {
-        val totalSize = _uiState.value.attachmentUris.sumOf { getFileSize(context, Uri.parse(it)) }
+        val totalSize = _messageCenterState.value.attachmentUris.sumOf { getFileSize(context, Uri.parse(it)) }
         val newUriSize = getFileSize(context, Uri.parse(uri))
 
         if (totalSize + newUriSize > 16 * 1024 * 1024) { // 16 MB
-            _uiState.update { it.copy(showAttachmentSizeLimitWarning = true) }
+            _messageCenterState.update { it.copy(showAttachmentSizeLimitWarning = true) }
             return
         }
-        _uiState.update { it.copy(attachmentUris = it.attachmentUris + uri) }
+        _messageCenterState.update { it.copy(attachmentUris = it.attachmentUris + uri) }
     }
 
     fun dismissAttachmentSizeLimitWarning() {
-        _uiState.update { it.copy(showAttachmentSizeLimitWarning = false) }
+        _messageCenterState.update { it.copy(showAttachmentSizeLimitWarning = false) }
     }
 
     private fun getFileSize(context: Context, uri: Uri): Long {
@@ -349,23 +370,23 @@ class MainViewModel(
     }
 
     fun removeAttachmentUri(uri: String) {
-        _uiState.update { it.copy(attachmentUris = it.attachmentUris - uri) }
+        _messageCenterState.update { it.copy(attachmentUris = it.attachmentUris - uri) }
     }
 
     fun onDismissAttachmentBottomSheet() {
-        _uiState.update { it.copy(showAttachmentBottomSheet = false) }
+        _messageCenterState.update { it.copy(showAttachmentBottomSheet = false) }
     }
 
     fun showAttachmentBottomSheet() {
-        _uiState.update { it.copy(showAttachmentBottomSheet = true) }
+        _messageCenterState.update { it.copy(showAttachmentBottomSheet = true) }
     }
 
     fun sendMessage(context: Context) {
         var messageId = UUID.randomUUID().toString()
-        _uiState.update { it.copy(inProgressAssistantMessageId = messageId + ".reply") }
+        _messagesState.update { it.copy(inProgressAssistantMessageId = messageId + ".reply") }
 
         // Local accumulator - the source of truth during streaming
-        var localMessages = _uiState.value.threadMessages
+        var localMessages = _messagesState.value.messages
 
         val assistantMessages = localMessages.filter { it.role == AssistantThreadMessageRole.USER }
         val latestAssistantMessageId = assistantMessages.takeLast(1).firstOrNull()?.id
@@ -374,12 +395,12 @@ class MainViewModel(
         // Add user message
         localMessages = localMessages + AssistantThreadMessage(
             id = messageId,
-            content = getMessageCenterText(),
+            content = _messageCenterState.value.text,
             role = AssistantThreadMessageRole.USER,
             citations = emptyList(),
             branchIds = branchIdContext,
         ) + AssistantThreadMessage(
-            id = _uiState.value.inProgressAssistantMessageId!!,
+            id = _messagesState.value.inProgressAssistantMessageId!!,
             content = "",
             role = AssistantThreadMessageRole.ASSISTANT,
             citations = emptyList(),
@@ -387,7 +408,7 @@ class MainViewModel(
             markdownContent = "",
             metadata = emptyMap(),
         )
-        _uiState.update { it.copy(threadMessages = localMessages) }
+        _messagesState.update { it.copy(messages = localMessages) }
 
         viewModelScope.launch {
             val streamId = UUID.randomUUID().toString()
@@ -397,17 +418,17 @@ class MainViewModel(
             val branchId = localMessages.takeLast(1).firstOrNull()?.branchIds?.lastOrNull()
 
             val focus = KagiPromptRequestFocus(
-                _uiState.value.currentThreadId,
+                _threadsState.value.currentThreadId,
                 latestAssistantMessageId,
-                getMessageCenterText().trim(),
+                _messageCenterState.value.text.trim(),
                 branchId,
             )
 
             onMessageCenterTextChanged("")
 
             try {
-                if (_uiState.value.profiles.isEmpty()) {
-                    _uiState.update { it.copy(profiles = repository.getProfiles()) }
+                if (_messageCenterState.value.profiles.isEmpty()) {
+                    _messageCenterState.update { it.copy(profiles = repository.getProfiles()) }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -417,7 +438,7 @@ class MainViewModel(
                 focus,
                 KagiPromptRequestProfile(
                     getProfile()?.id,
-                    _uiState.value.isSearchEnabled,
+                    _messageCenterState.value.isSearchEnabled,
                     null,
                     getProfile()?.model ?: "",
                     false,
@@ -425,7 +446,7 @@ class MainViewModel(
                 if (getEditingMessageId().isNullOrBlank()) null else listOf(
                     KagiPromptRequestThreads(
                         listOf(),
-                        saved = !_uiState.value.isTemporaryChat,
+                        saved = !_messagesState.value.isTemporaryChat,
                         shared = false
                     )
                 )
@@ -446,7 +467,7 @@ class MainViewModel(
                 if (chunk.done) {
                     // set finishedGenerating to true
                     localMessages = localMessages.map {
-                        if (it.id == _uiState.value.inProgressAssistantMessageId) {
+                        if (it.id == _messagesState.value.inProgressAssistantMessageId) {
                             it.copy(finishedGenerating = true)
                         } else {
                             it
@@ -468,7 +489,7 @@ class MainViewModel(
                         if (newBranchId != null) {
                             // update the inProgressAssistant message with the new branch ID by appending if it doesn't already have it
                             localMessages = localMessages.map {
-                                if (it.id == _uiState.value.inProgressAssistantMessageId && newBranchId !in it.branchIds) {
+                                if (it.id == _messagesState.value.inProgressAssistantMessageId && newBranchId !in it.branchIds) {
                                     it.copy(branchIds = it.branchIds + newBranchId)
                                 } else {
                                     it
@@ -486,7 +507,7 @@ class MainViewModel(
                         }
 
                         val newInProgressId = dto.id + ".reply"
-                        _uiState.update { it.copy(inProgressAssistantMessageId = newInProgressId) }
+                        _messagesState.update { it.copy(inProgressAssistantMessageId = newInProgressId) }
 
                         localMessages = localMessages.map {
                             if (it.id == "$messageId.reply") it.copy(id = newInProgressId) else it
@@ -507,7 +528,7 @@ class MainViewModel(
                                 ) else it
                             }
 
-                        _uiState.update { it.copy(threadMessages = localMessages) }
+                        _messagesState.update { it.copy(messages = localMessages) }
                     }
 
                     "tokens.json" -> {
@@ -526,16 +547,16 @@ class MainViewModel(
                         val currentTime = System.currentTimeMillis()
                         if ((currentTime - lastTokenUpdateTime) >= 32) {
                             lastTokenUpdateTime = currentTime
-                            _uiState.update { it.copy(threadMessages = localMessages) }
+                            _messagesState.update { it.copy(messages = localMessages) }
                         }
                     }
                 }
             }
 
-            if (_uiState.value.attachmentUris.isNotEmpty()) {
+            if (_messageCenterState.value.attachmentUris.isNotEmpty()) {
                 val files = mutableListOf<MultipartAssistantPromptFile>()
 
-                for (uriStr in _uiState.value.attachmentUris) {
+                for (uriStr in _messageCenterState.value.attachmentUris) {
                     val uri = uriStr.toUri()
                     val fileName = context.getFileName(uri) ?: "Unknown"
                     val file = uri.copyToTempFile(context, "." + fileName.substringAfterLast("."))
@@ -570,7 +591,7 @@ class MainViewModel(
                     }
                 }
 
-                _uiState.update { it.copy(attachmentUris = emptyList()) }
+                _messageCenterState.update { it.copy(attachmentUris = emptyList()) }
 
                 try {
                     repository.sendMultipartRequest(
@@ -600,7 +621,7 @@ class MainViewModel(
 
             // Final sync to catch any remaining updates
             withContext(Dispatchers.Main) {
-                _uiState.update { it.copy(threadMessages = localMessages, inProgressAssistantMessageId = null) }
+                _messagesState.update { it.copy(messages = localMessages, inProgressAssistantMessageId = null) }
             }
         }
     }
