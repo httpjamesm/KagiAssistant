@@ -4,22 +4,28 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -29,10 +35,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -44,13 +54,22 @@ fun AttachmentPreview(uri: String, onRemove: (uri: String) -> Unit, readOnly: Bo
     val parsedUri = remember(uri) { uri.toUri() }
     var showPreview by rememberSaveable { mutableStateOf(false) }
     val ctx = LocalContext.current
+    val haptics = LocalHapticFeedback.current
 
     val fileName = rememberFileName(parsedUri)
-
     val mime = ctx.contentResolver.getType(parsedUri)          // e.g. "image/webp"
 
+    fun handleRemove(withHaptic: Boolean = true) {
+        if (withHaptic) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        onRemove(uri)
+    }
+
     if (mime?.startsWith("image") ?: false) {
-        Box(modifier = Modifier.size(84.dp)) {
+        SwipeToRemoveBox(
+            uri = uri,
+            modifier = Modifier.size(84.dp),
+            onRemove = { handleRemove() }
+        ) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -64,62 +83,40 @@ fun AttachmentPreview(uri: String, onRemove: (uri: String) -> Unit, readOnly: Bo
                     modifier = Modifier.fillMaxSize()
                 )
             }
-
-            Icon(
-                imageVector = Icons.Default.Close,
-                contentDescription = "Remove",
-                tint = Color.White,
-                modifier = Modifier
-                    .size(20.dp)
-                    .align(Alignment.TopEnd)
-                    .clickable {
-                        onRemove(uri)
-                    }
-                    .background(Color.Gray),
-            )
+            RemoveButton(onClick = { handleRemove(false) })
         }
     } else {
-        Box(
+        SwipeToRemoveBox(
+            uri = uri,
             modifier = Modifier
                 .width(200.dp)
                 .height(84.dp)
                 .background(
                     shape = RoundedCornerShape(8.dp),
                     color = MaterialTheme.colorScheme.background
-                )
+                ),
+            onRemove = { handleRemove() }
         ) {
-            Column(verticalArrangement = Arrangement.Center, modifier = Modifier.fillMaxSize()) {
-                Column(modifier = Modifier
-                    .fillMaxSize()
-                    .padding(8.dp)) {
-                    Text(
-                        text = fileName ?: "Unknown",
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = mime ?: "Unknown",
-                        style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.alpha(0.8f)
-                    )
-                }
-            }
-
-            Icon(
-                imageVector = Icons.Default.Close,
-                contentDescription = "Remove",
-                tint = Color.White,
+            Column(
+                verticalArrangement = Arrangement.Center,
                 modifier = Modifier
-                    .size(20.dp)
-                    .clickable {
-                        onRemove(uri)
-                    }
-                    .align(
-                        Alignment.TopEnd
-                    )
-                    .background(Color.Gray),
-            )
+                    .fillMaxSize()
+                    .padding(8.dp)
+            ) {
+                Text(
+                    text = fileName ?: "Unknown",
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 2,
+                    minLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = mime ?: "Unknown",
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.alpha(0.8f)
+                )
+            }
+            RemoveButton(onClick = { handleRemove(false) })
         }
     }
 
@@ -161,6 +158,70 @@ fun rememberFileName(uri: Uri?): String? {
                     if (idx >= 0) c.getString(idx) else null
                 } else null
             }
+        }
+    }
+}
+
+@Composable
+private fun SwipeToRemoveBox(
+    uri: String,
+    modifier: Modifier = Modifier,
+    onRemove: () -> Unit,
+    content: @Composable BoxScope.() -> Unit
+) {
+    var offsetY by remember { mutableFloatStateOf(0f) }
+
+    Box(
+        modifier = modifier
+            .offset { IntOffset(0, offsetY.toInt()) }
+            .pointerInput(uri) {
+                var startY = 0f
+                detectVerticalDragGestures(
+                    onDragEnd = {
+                        if (offsetY < -100f) {
+                            onRemove()
+                        }
+                        offsetY = 0f
+                    },
+                    onDragCancel = {
+                        offsetY = 0f
+                    },
+                    onVerticalDrag = { change, dragAmount ->
+                        change.consume()
+                        // Only allow upward movement (negative values)
+                        if (dragAmount < 0 || startY + dragAmount < 0) {
+                            startY = (startY + dragAmount).coerceAtMost(0f)
+                            offsetY = startY
+                            if (offsetY < -200f) {
+                                onRemove()
+                            }
+                        }
+                    }
+                )
+            }
+    ) {
+        content()
+    }
+}
+
+@Composable
+private fun BoxScope.RemoveButton(onClick: () -> Unit) {
+    Surface(
+        color = Color.Black.copy(alpha = 0.6f),
+        shape = CircleShape,
+        modifier = Modifier
+            .padding(4.dp)
+            .size(32.dp)
+            .align(Alignment.TopEnd)
+            .clickable { onClick() }
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = "Remove",
+                tint = Color.White,
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }

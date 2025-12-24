@@ -1,7 +1,6 @@
 package space.httpjames.kagiassistantmaterial
 
 import android.Manifest
-import android.R
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -41,7 +40,7 @@ class MainActivity : ComponentActivity() {
         // Handle initial intent (e.g., when app is launched from share sheet)
         extractSharedUris(intent)?.let { pendingSharedUris.addAll(it) }
 
-        val rootView: View = findViewById(R.id.content)
+        val rootView: View = findViewById(android.R.id.content)
 
         ViewCompat.setOnApplyWindowInsetsListener(rootView) { v, insets ->
             val imeVisible = insets.isVisible(WindowInsetsCompat.Type.ime())
