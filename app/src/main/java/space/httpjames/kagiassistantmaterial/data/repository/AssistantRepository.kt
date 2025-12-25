@@ -83,7 +83,7 @@ class AssistantRepositoryImpl(
 
     override suspend fun getThreads(): Map<String, List<AssistantThread>> =
         withContext(Dispatchers.IO) {
-            assistantClient.getThreads()
+            assistantClient.getThreads() ?: emptyMap()
         }
 
     override suspend fun deleteChat(threadId: String): Result<Unit> = withContext(Dispatchers.IO) {
