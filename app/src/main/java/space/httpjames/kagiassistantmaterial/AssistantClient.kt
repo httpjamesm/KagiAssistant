@@ -3,6 +3,7 @@ package space.httpjames.kagiassistantmaterial
 import android.graphics.Bitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.serialization.Serializable
@@ -367,41 +368,17 @@ class AssistantClient(
         return profiles
     }
 
-    suspend fun getThreads(): Map<String, List<AssistantThread>> {
-        var threadMap = mutableMapOf<String, MutableList<AssistantThread>>()
-
-        fetchStream(
+    suspend fun getThreads(): Map<String, List<AssistantThread>>? {
+        return fetchStream(
             url = "https://kagi.com/assistant/thread_list",
             method = "POST",
             body = "{}",
             extraHeaders = mapOf("Content-Type" to "application/json")
-        ).collect { chunk ->
-            if (chunk.header == "thread_list.html") {
-                val html = "<html><body>${chunk.data}</body></html>"
-
-                val doc = Jsoup.parse(html)
-
-                var currentHeader = "Threads"
-                for (element in doc.select(".hide-if-no-threads .thread-list-header, .hide-if-no-threads .thread")) {
-                    when {
-                        element.hasClass("thread-list-header") -> currentHeader =
-                            element.text().trim()
-
-                        element.hasClass("thread") -> {
-                            val title = element.selectFirst(".title")?.text()?.trim().orEmpty()
-                            val excerpt = element.selectFirst(".excerpt")?.text()?.trim().orEmpty()
-                            val id = element.attr("data-code")
-                            val list = threadMap.getOrPut(currentHeader) { mutableListOf() }
-                            list.add(AssistantThread(id, title, excerpt))
-                        }
-                    }
-                }
-            }
-        }
-
-        return threadMap
+        )
+            .firstOrNull { it.header == "thread_list.html" }
+            ?.let { it.data.parseThreadListHtml() }
     }
-
+    
     /**
      * Performs a streaming HTTP request and returns a Flow of StreamChunk.
      * This helper handles the common streaming lifecycle: request execution,
@@ -561,4 +538,29 @@ fun parseMetadata(html: String): Map<String, String> {
         val value = li.selectFirst("span.value")?.text() ?: ""
         key to value
     }
+}
+
+fun String.parseThreadListHtml(): MutableMap<String, MutableList<AssistantThread>> {
+    val html = this
+    var threadMap = mutableMapOf<String, MutableList<AssistantThread>>()
+
+    val doc = Jsoup.parse(html)
+
+    var currentHeader = "Threads"
+    for (element in doc.select(".hide-if-no-threads .thread-list-header, .hide-if-no-threads .thread")) {
+        when {
+            element.hasClass("thread-list-header") -> currentHeader =
+                element.text().trim()
+
+            element.hasClass("thread") -> {
+                val title = element.selectFirst(".title")?.text()?.trim().orEmpty()
+                val excerpt = element.selectFirst(".excerpt")?.text()?.trim().orEmpty()
+                val id = element.attr("data-code")
+                val list = threadMap.getOrPut(currentHeader) { mutableListOf() }
+                list.add(AssistantThread(id, title, excerpt))
+            }
+        }
+    }
+
+    return threadMap
 }

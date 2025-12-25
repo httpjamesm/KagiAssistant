@@ -34,6 +34,7 @@ import space.httpjames.kagiassistantmaterial.MultipartAssistantPromptFile
 import space.httpjames.kagiassistantmaterial.StreamChunk
 import space.httpjames.kagiassistantmaterial.data.repository.AssistantRepository
 import space.httpjames.kagiassistantmaterial.parseMetadata
+import space.httpjames.kagiassistantmaterial.parseThreadListHtml
 import space.httpjames.kagiassistantmaterial.toObject
 import space.httpjames.kagiassistantmaterial.ui.message.AssistantProfile
 import space.httpjames.kagiassistantmaterial.ui.message.copyToTempFile
@@ -539,6 +540,14 @@ class MainViewModel(
                                     msg.copy(branchIds = msg.branchIds + newBranchId)
                                 } else msg
                             }
+                        }
+                    }
+
+                    "thread_list.html" -> {
+                        _threadsState.update {
+                            it.copy(
+                                threads = chunk.data.parseThreadListHtml()
+                            )
                         }
                     }
 
