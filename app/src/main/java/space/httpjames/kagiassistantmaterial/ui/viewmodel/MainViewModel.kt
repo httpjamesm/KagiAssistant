@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.webkit.MimeTypeMap
 import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -37,7 +38,6 @@ import space.httpjames.kagiassistantmaterial.parseMetadata
 import space.httpjames.kagiassistantmaterial.toObject
 import space.httpjames.kagiassistantmaterial.ui.message.AssistantProfile
 import space.httpjames.kagiassistantmaterial.ui.message.copyToTempFile
-import space.httpjames.kagiassistantmaterial.ui.message.getFileName
 import space.httpjames.kagiassistantmaterial.ui.message.to84x84ThumbFile
 import space.httpjames.kagiassistantmaterial.utils.DataFetchingState
 import space.httpjames.kagiassistantmaterial.utils.PreferenceKey
@@ -600,22 +600,21 @@ class MainViewModel(
                     _messageCenterState.value.attachmentUris.mapNotNull { uriStr ->
                         try {
                             val uri = uriStr.toUri()
-                            val fileName = context.getFileName(uri) ?: return@mapNotNull null
-                            val file =
-                                uri.copyToTempFile(context, "." + fileName.substringAfterLast("."))
-                            val thumbnail =
-                                if (fileName.endsWith(".webp") || fileName.endsWith(".jpg") || fileName.endsWith(
-                                        ".png"
-                                    )
-                                ) {
-                                    file.to84x84ThumbFile()
-                                } else null
-
-                            MultipartAssistantPromptFile(
-                                file,
-                                thumbnail,
+                            val mimeType =
                                 context.contentResolver.getType(uri) ?: "application/octet-stream"
-                            )
+
+                            val extension =
+                                MimeTypeMap.getSingleton().getExtensionFromMimeType(mimeType)
+                                    ?: "tmp"
+                            val file = uri.copyToTempFile(context, ".$extension")
+
+                            val thumbnail = if (mimeType.startsWith("image/", ignoreCase = true)) {
+                                file.to84x84ThumbFile()
+                            } else {
+                                null
+                            }
+
+                            MultipartAssistantPromptFile(file, thumbnail, mimeType)
                         } catch (e: Exception) {
                             e.printStackTrace()
                             null
