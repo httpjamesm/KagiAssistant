@@ -531,7 +531,23 @@ class MainViewModel(
                         val id = json.jsonObject["id"]?.jsonPrimitive?.contentOrNull
                         if (id != null) setCurrentThreadId(id)
                         val title = json.jsonObject["title"]?.jsonPrimitive?.contentOrNull
-                        if (title != null) setCurrentThreadTitle(title)
+                        if (title != null && id != null) {
+                            setCurrentThreadTitle(title)
+                            // update thread list state too so that this thread's name gets updated
+                            _threadsState.update { state ->
+                                state.copy(
+                                    threads = state.threads.mapValues { (_, threads) ->
+                                        threads.map { thread ->
+                                            if (thread.id == id) {
+                                                thread.copy(title = title)
+                                            } else {
+                                                thread
+                                            }
+                                        }
+                                    }
+                                )
+                            }
+                        }
                     }
 
                     "location.json" -> {
