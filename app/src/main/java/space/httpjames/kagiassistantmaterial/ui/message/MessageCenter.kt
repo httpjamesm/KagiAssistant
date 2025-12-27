@@ -17,9 +17,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
@@ -194,11 +194,11 @@ fun MessageCenter(
 
                 val backgroundColor by animateColorAsState(
                     if (messageCenterState.isSearchEnabled) MaterialTheme.colorScheme.primary else Color.Transparent,
-                    label = "Search button background"
+                    label = "Internet button background"
                 )
                 val contentColor by animateColorAsState(
                     if (messageCenterState.isSearchEnabled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-                    label = "Search button content"
+                    label = "Internet button content"
                 )
 
                 Row(
@@ -216,7 +216,7 @@ fun MessageCenter(
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Icon(
-                        Icons.Filled.Search,
+                        Icons.Filled.Language,
                         contentDescription = "Toggle internet access",
                         tint = contentColor
                     )
@@ -249,7 +249,7 @@ fun MessageCenter(
                     enabled = messageCenterState.text.isNotBlank() || messageCenterState.attachmentUris.isNotEmpty(),
                     modifier = Modifier.size(56.dp),
                 ) {
-                    Icon(Icons.Filled.Send, contentDescription = "Send message")
+                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send message")
                 }
             }
         }
