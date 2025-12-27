@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -39,7 +40,7 @@ fun SourcesButton(
 
         Box(
             modifier = Modifier
-                .width(iconSize * domains.size - iconSize / 2) // keep overall width tight
+                .width(iconSize + (iconSize * 0.6f * (domains.size - 1)))
                 .height(iconSize)
         ) {
             domains.forEachIndexed { index, domain ->
@@ -64,9 +65,9 @@ fun SourcesButton(
             }
         }
 
-
         Text(
             text = text,
+            modifier = Modifier.padding(start = 8.dp),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
