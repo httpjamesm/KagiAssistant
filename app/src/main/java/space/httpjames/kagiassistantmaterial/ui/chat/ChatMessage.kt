@@ -2,8 +2,10 @@ package space.httpjames.kagiassistantmaterial.ui.chat
 
 import android.annotation.SuppressLint
 import android.content.ClipData
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -52,6 +54,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import space.httpjames.kagiassistantmaterial.AssistantThreadMessageDocument
 import space.httpjames.kagiassistantmaterial.AssistantThreadMessageRole
@@ -59,6 +62,8 @@ import space.httpjames.kagiassistantmaterial.Citation
 import space.httpjames.kagiassistantmaterial.ui.message.ShimmeringMessagePlaceholder
 import space.httpjames.kagiassistantmaterial.ui.shared.DynamicAssistantIcon
 import java.net.URI
+
+const val MAX_USER_MESSAGE_LENGTH = 500
 
 sealed class ContentSegment {
     data class Event(
@@ -170,6 +175,7 @@ fun ChatMessage(
     var showSourcesSheet by remember { mutableStateOf(false) }
     var menuExpanded by remember { mutableStateOf(false) }
     var showMetadataModal by remember { mutableStateOf(false) }
+    var isUserMessageExpanded by remember { mutableStateOf(false) }
 
     val contentSegments = remember(content, id) {
         ContentParser.parseContent(content)
@@ -223,15 +229,48 @@ fun ChatMessage(
                     }
                 ) {
                     if (isMe) {
-                        Text(
-                            text = content.ifBlank { "Empty message" },
+                        val displayContent =
+                            if (!isUserMessageExpanded && content.length > MAX_USER_MESSAGE_LENGTH) {
+                                content.take(MAX_USER_MESSAGE_LENGTH) + "..."
+                            } else {
+                                content
+                            }
+
+                        Column(
                             modifier = Modifier
                                 .padding(12.dp)
                                 .widthIn(max = this@BoxWithConstraints.maxWidth * 0.7f)
-                                .alpha(if (content.isBlank()) 0.8f else 1f),
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontStyle = if (content.isBlank()) FontStyle.Italic else null,
-                        )
+                                .animateContentSize(),
+                        ) {
+                            Text(
+                                text = displayContent.ifBlank { "Empty message" },
+                                modifier = Modifier
+                                    .alpha(if (content.isBlank()) 0.8f else 1f),
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontStyle = if (content.isBlank()) FontStyle.Italic else null,
+                            )
+
+                            if (content.length > MAX_USER_MESSAGE_LENGTH) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.End,
+                                ) {
+                                    Text(
+                                        text = "Read ${if (isUserMessageExpanded) "less" else "more"}",
+                                        modifier = Modifier
+                                            .padding(top = 4.dp)
+                                            .clickable {
+                                                isUserMessageExpanded = !isUserMessageExpanded
+                                            }
+                                            .padding(4.dp),
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp,
+                                        )
+                                    )
+                                }
+                            }
+                        }
                     } else {
                         Column {
                             DynamicAssistantIcon(
