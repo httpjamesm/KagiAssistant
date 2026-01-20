@@ -185,8 +185,13 @@ fun ChatMessage(
         contentSegments.mapIndexed { index, segment ->
             when (segment) {
                 is ContentSegment.Event -> {
-                    // Completed if there's any segment after this one
-                    index < contentSegments.lastIndex
+                    // If titleends with a period, NOT completed
+                    // Otherwise, completed only if there's a segment after
+                    if (segment.title.endsWith(".")) {
+                        false
+                    } else {
+                        index < contentSegments.lastIndex
+                    }
                 }
 
                 else -> false
