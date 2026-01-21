@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.PhoneInTalk
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Stars
+import androidx.compose.material.icons.filled.VerticalAlignBottom
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -249,12 +250,26 @@ fun SettingsScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
+                SettingsItem(
+                    icon = Icons.Default.VerticalAlignBottom,
+                    title = "Sticky scroll",
+                    subtitle = "Auto-scroll during generation",
+                    pos = SettingsItemPosition.TOP,
+                    iconBackgroundColor = MaterialTheme.colorScheme.primaryContainer,
+                    iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    rightSide = {
+                        Switch(checked = uiState.stickyScrollEnabled, onCheckedChange = {
+                            viewModel.toggleStickyScroll()
+                        })
+                    }
+                )
                 SettingsItem(
                     icon = Icons.Default.Keyboard,
                     title = "Auto keyboard",
                     subtitle = "Always focus the message bar",
-                    pos = SettingsItemPosition.SINGLE,
+                    pos = SettingsItemPosition.BOTTOM,
                     iconBackgroundColor = MaterialTheme.colorScheme.primaryContainer,
                     iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
                     rightSide = {

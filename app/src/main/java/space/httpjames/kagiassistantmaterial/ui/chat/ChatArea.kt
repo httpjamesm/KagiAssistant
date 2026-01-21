@@ -52,6 +52,7 @@ fun ChatArea(
     onRetryClick: () -> Unit,
     isTemporaryChat: Boolean,
     isGenerating: Boolean = false,
+    stickyScrollEnabled: Boolean = true,
 ) {
     val scrollState = rememberScrollState()
     var pendingMeasurements by remember { mutableIntStateOf(0) }
@@ -68,26 +69,26 @@ fun ChatArea(
 
     // Track if sticky scroll should be active
     // Becomes true when at bottom, becomes false when user scrolls up during generation
-    var stickyScrollEnabled by remember { mutableStateOf(true) }
+    var stickyScrollActive by remember { mutableStateOf(stickyScrollEnabled) }
 
     // Detect manual scroll up during generation to disable sticky scroll
     LaunchedEffect(scrollState.isScrollInProgress, isAtBottom) {
         if (scrollState.isScrollInProgress && !isAtBottom && isGenerating) {
             // User scrolled away from bottom during generation - disable sticky
-            stickyScrollEnabled = false
+            stickyScrollActive = false
         }
     }
 
     // Re-enable sticky scroll when user scrolls back to bottom or generation stops
     LaunchedEffect(isAtBottom, isGenerating) {
         if (isAtBottom) {
-            stickyScrollEnabled = true
+            stickyScrollActive = stickyScrollEnabled
         }
     }
 
     // Auto-scroll to bottom during generation if sticky is enabled
-    LaunchedEffect(scrollState.maxValue, isGenerating, stickyScrollEnabled) {
-        if (isGenerating && stickyScrollEnabled && scrollState.maxValue > 0) {
+    LaunchedEffect(scrollState.maxValue, isGenerating, stickyScrollActive) {
+        if (isGenerating && stickyScrollActive && scrollState.maxValue > 0) {
             scrollState.scrollTo(scrollState.maxValue)
         }
     }
