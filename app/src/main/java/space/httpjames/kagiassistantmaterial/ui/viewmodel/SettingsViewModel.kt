@@ -25,7 +25,8 @@ data class SettingsUiState(
     val showAssistantModelChooserModal: Boolean = false,
     val selectedAssistantModel: String = PreferenceKey.DEFAULT_ASSISTANT_MODEL,
     val selectedAssistantModelName: String? = null,
-    val useMiniOverlay: Boolean = PreferenceKey.DEFAULT_USE_MINI_OVERLAY
+    val useMiniOverlay: Boolean = PreferenceKey.DEFAULT_USE_MINI_OVERLAY,
+    val stickyScrollEnabled: Boolean = PreferenceKey.DEFAULT_STICKY_SCROLL
 )
 
 /**
@@ -52,6 +53,10 @@ class SettingsViewModel(
             useMiniOverlay = prefs.getBoolean(
                 PreferenceKey.USE_MINI_OVERLAY.key,
                 PreferenceKey.DEFAULT_USE_MINI_OVERLAY
+            ),
+            stickyScrollEnabled = prefs.getBoolean(
+                PreferenceKey.STICKY_SCROLL.key,
+                PreferenceKey.DEFAULT_STICKY_SCROLL
             )
         )
     )
@@ -135,8 +140,15 @@ class SettingsViewModel(
                 autoSpeakReplies = PreferenceKey.DEFAULT_AUTO_SPEAK_REPLIES,
                 openKeyboardAutomatically = PreferenceKey.DEFAULT_OPEN_KEYBOARD_AUTOMATICALLY,
                 selectedAssistantModel = PreferenceKey.DEFAULT_ASSISTANT_MODEL,
-                useMiniOverlay = PreferenceKey.DEFAULT_USE_MINI_OVERLAY
+                useMiniOverlay = PreferenceKey.DEFAULT_USE_MINI_OVERLAY,
+                stickyScrollEnabled = PreferenceKey.DEFAULT_STICKY_SCROLL
             )
         }
+    }
+
+    fun toggleStickyScroll() {
+        val newValue = !_uiState.value.stickyScrollEnabled
+        _uiState.update { it.copy(stickyScrollEnabled = newValue) }
+        prefs.edit().putBoolean(PreferenceKey.STICKY_SCROLL.key, newValue).apply()
     }
 }

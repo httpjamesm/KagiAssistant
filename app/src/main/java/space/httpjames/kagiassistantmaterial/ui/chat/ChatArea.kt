@@ -51,6 +51,8 @@ fun ChatArea(
     onEdit: (String) -> Unit,
     onRetryClick: () -> Unit,
     isTemporaryChat: Boolean,
+    isGenerating: Boolean = false,
+    stickyScrollEnabled: Boolean = true,
 ) {
     val scrollState = rememberScrollState()
     var pendingMeasurements by remember { mutableIntStateOf(0) }
@@ -59,6 +61,37 @@ fun ChatArea(
     val coroutineScope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
     var showButton by remember { mutableStateOf(false) }
+
+    // Sticky scroll: track if user is at the bottom
+    // Consider "at bottom" if within a small threshold (e.g., 50px) to account for minor variations
+    val isAtBottom = scrollState.maxValue == 0 || 
+            (scrollState.maxValue - scrollState.value) <= 50
+
+    // Track if sticky scroll should be active
+    // Becomes true when at bottom, becomes false when user scrolls up during generation
+    var stickyScrollActive by remember { mutableStateOf(stickyScrollEnabled) }
+
+    // Detect manual scroll up during generation to disable sticky scroll
+    LaunchedEffect(scrollState.isScrollInProgress, isAtBottom) {
+        if (scrollState.isScrollInProgress && !isAtBottom && isGenerating) {
+            // User scrolled away from bottom during generation - disable sticky
+            stickyScrollActive = false
+        }
+    }
+
+    // Re-enable sticky scroll when user scrolls back to bottom or generation stops
+    LaunchedEffect(isAtBottom, isGenerating) {
+        if (isAtBottom) {
+            stickyScrollActive = stickyScrollEnabled
+        }
+    }
+
+    // Auto-scroll to bottom during generation if sticky is enabled
+    LaunchedEffect(scrollState.maxValue, isGenerating, stickyScrollActive) {
+        if (isGenerating && stickyScrollActive && scrollState.maxValue > 0) {
+            scrollState.scrollTo(scrollState.maxValue)
+        }
+    }
 
     LaunchedEffect(scrollState.isScrollInProgress, scrollState.value, scrollState.maxValue) {
         showButton = !scrollState.isScrollInProgress &&

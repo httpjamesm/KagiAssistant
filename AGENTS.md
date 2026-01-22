@@ -108,3 +108,66 @@ workspace consistent, safe, and maintainable.
    functions so tests can mock them.
 3. **Resources**: Compose references should use `stringResource`, `painterResource`, etc. Avoid raw
    `R.string` usage outside Compose preview contexts.
+
+---
+
+## Settings & Preferences Pattern
+
+### Adding a New Setting
+
+When adding a new user-configurable setting, follow these steps:
+
+1. **Add to `PreferenceKey` enum** (`utils/PreferenceKeys.kt`):
+   - Add enum entry with key string: `NEW_SETTING("new_setting")`
+   - Add default value in `companion object`: `const val DEFAULT_NEW_SETTING = true/false`
+
+2. **Update `SettingsUiState`** (`viewmodel/SettingsViewModel.kt`):
+   - Add property: `val newSetting: Boolean = PreferenceKey.DEFAULT_NEW_SETTING`
+   - Initialize from prefs in `_uiState`:
+     ```kotlin
+     newSetting = prefs.getBoolean(
+         PreferenceKey.NEW_SETTING.key,
+         PreferenceKey.DEFAULT_NEW_SETTING
+     )
+     ```
+
+3. **Add toggle function** (`SettingsViewModel.kt`):
+   ```kotlin
+   fun toggleNewSetting() {
+       val newValue = !_uiState.value.newSetting
+       _uiState.update { it.copy(newSetting = newValue) }
+       prefs.edit().putBoolean(PreferenceKey.NEW_SETTING.key, newValue).apply()
+   }
+   ```
+
+4. **Update `clearAllPrefs`** to include the default value reset.
+
+5. **Add UI item** (`ui/settings/SettingsScreen.kt`):
+   - Use `SettingsItem` composable with appropriate position (TOP/MIDDLE/BOTTOM/SINGLE)
+   - Add `Switch` in `rightSide` parameter calling `viewModel.toggleNewSetting()`
+
+6. **Pass preference to consumer** (e.g., `MainScreen.kt` or wherever needed):
+   ```kotlin
+   val prefs = context.getSharedPreferences("assistant_prefs", Context.MODE_PRIVATE)
+   val settingValue = prefs.getBoolean(
+       PreferenceKey.NEW_SETTING.key,
+       PreferenceKey.DEFAULT_NEW_SETTING
+   )
+   ```
+
+### Preference Key Conventions
+
+- **Never use magic strings** for preference keys. Always use `PreferenceKey.KEY_NAME.key` and `PreferenceKey.DEFAULT_KEY_NAME`
+- **Use descriptive names** that clearly indicate what the preference controls
+- **Boolean preferences** should have `toggleXxx()` functions in the ViewModel
+- **All preferences** must have default values defined in the `companion object`
+
+### SettingsItem Positioning
+
+The `SettingsItemPosition` enum controls visual grouping:
+- `SINGLE`: Standalone item with rounded corners on all sides
+- `TOP`: First item in a group, top corners rounded
+- `MIDDLE`: Middle item in a group, no rounded corners
+- `BOTTOM`: Last item in a group, bottom corners rounded
+
+When grouping related settings (e.g., "Sticky scroll" and "Auto keyboard"), use TOP/MIDDLE/BOTTOM in the same `Column` with `verticalArrangement = Arrangement.spacedBy(2.dp)`.

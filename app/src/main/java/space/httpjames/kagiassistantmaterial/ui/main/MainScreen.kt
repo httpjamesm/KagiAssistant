@@ -41,6 +41,7 @@ import androidx.navigation.NavController
 import kotlinx.coroutines.launch
 import space.httpjames.kagiassistantmaterial.AssistantClient
 import space.httpjames.kagiassistantmaterial.Screens
+import space.httpjames.kagiassistantmaterial.utils.PreferenceKey
 import space.httpjames.kagiassistantmaterial.ui.chat.ChatArea
 import space.httpjames.kagiassistantmaterial.ui.message.MessageCenter
 import space.httpjames.kagiassistantmaterial.ui.shared.Header
@@ -224,7 +225,12 @@ fun MainScreen(
                             viewModel.onThreadSelected(threadsState.currentThreadId!!)
                         }
                     },
-                    isTemporaryChat = messagesState.isTemporaryChat
+                    isTemporaryChat = messagesState.isTemporaryChat,
+                    isGenerating = messagesState.inProgressAssistantMessageId != null,
+                    stickyScrollEnabled = prefs.getBoolean(
+                        PreferenceKey.STICKY_SCROLL.key,
+                        PreferenceKey.DEFAULT_STICKY_SCROLL
+                    )
                 )
                 MessageCenter(
                     threadId = threadsState.currentThreadId,
