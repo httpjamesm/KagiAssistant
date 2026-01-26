@@ -12,7 +12,7 @@ android {
 
     defaultConfig {
         applicationId = "space.httpjames.kagiassistantmaterial"
-        minSdk = 36
+        minSdk = 33
         targetSdk = 36
         versionCode = 8
         versionName = "1.7"
