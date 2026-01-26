@@ -46,11 +46,9 @@ class AssistantClientUnitTest {
     @Test
     fun assistantClient_fetchStream_thread() = runTest {
         val threadId = "2a8a6308-0ff4-4414-85f4-70d2667ece88"
-        val streamId = UUID.randomUUID().toString()
 
         println("Fetching stream...")
         assistantClient.fetchStream(
-            streamId = streamId,
             url = "https://kagi.com/assistant/thread_open",
             method = "POST",
             body = """{"focus":{"thread_id":"$threadId"}}""",
@@ -62,9 +60,7 @@ class AssistantClientUnitTest {
 
     @Test
     fun assistantClient_fetchStream_profileList() = runTest {
-        val streamId = UUID.randomUUID().toString()
         assistantClient.fetchStream(
-            streamId = streamId,
             url = "https://kagi.com/assistant/profile_list",
             method = "POST",
             body = """{}""",
@@ -76,8 +72,6 @@ class AssistantClientUnitTest {
 
     @Test
     fun assistantClient_fetchStream_prompt() = runTest {
-        val streamId = UUID.randomUUID().toString()
-
         val url = "https://kagi.com/assistant/prompt"
 
         val focus = KagiPromptRequestFocus(
@@ -109,7 +103,6 @@ class AssistantClientUnitTest {
         val jsonString = Json.encodeToString(KagiPromptRequest.serializer(), requestBody)
 
         assistantClient.fetchStream(
-            streamId = streamId,
             url = url,
             method = "POST",
             body = jsonString,

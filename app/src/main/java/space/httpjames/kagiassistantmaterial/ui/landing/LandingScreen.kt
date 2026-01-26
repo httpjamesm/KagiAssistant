@@ -84,7 +84,8 @@ fun LandingScreen(onLoginSuccess: (String) -> Unit = {}) {
     ) { innerPadding ->
         Column(
             modifier = Modifier
-                .fillMaxSize(),
+                .fillMaxSize()
+                .padding(innerPadding),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             Column(
@@ -240,23 +241,10 @@ fun BouncingBall() {
 }
 
 private fun triggerFlightHaptic(vibe: Vibrator, velocity: Float) {
-    when {
-        // Android 11+ - Premium haptic primitives for smoothest feel
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.R -> {
-            val intensity = (velocity / 8f).coerceIn(0.05f, 0.3f)
-            val effect = VibrationEffect.startComposition()
-                .addPrimitive(VibrationEffect.Composition.PRIMITIVE_LOW_TICK, intensity)
-                .compose()
-            vibe.vibrate(effect)
-        }
-        // Android 8+ - Amplitude-controlled vibration
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.O -> {
-            val amplitude = (velocity * 4).coerceIn(1f, 30f).toInt()
-            val effect = VibrationEffect.createOneShot(12, amplitude)
-            vibe.vibrate(effect)
-        }
-        // Older devices - skip subtle flight haptics (too coarse)
-        else -> { /* No-op for pre-Oreo */
-        }
-    }
+    // SDK 31 (Android 11)+ - Premium haptic primitives for smoothest feel
+    val intensity = (velocity / 8f).coerceIn(0.05f, 0.3f)
+    val effect = VibrationEffect.startComposition()
+        .addPrimitive(VibrationEffect.Composition.PRIMITIVE_LOW_TICK, intensity)
+        .compose()
+    vibe.vibrate(effect)
 }
