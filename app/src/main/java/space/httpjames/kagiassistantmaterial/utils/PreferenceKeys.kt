@@ -12,10 +12,12 @@ enum class PreferenceKey(val key: String) {
     SAVED_THREAD_ID("savedThreadId"),
     COMPANION("companion"),
     PROFILE("profile"),
-    RECENTLY_USED_PROFILES("recently_used_profiles");
+    RECENTLY_USED_PROFILES("recently_used_profiles"),
+    TTS_VOICE("tts_voice");
 
     companion object {
         const val DEFAULT_ASSISTANT_MODEL = "gemini-2-5-flash-lite"
+        const val DEFAULT_TTS_VOICE = ""
         val DEFAULT_SESSION_TOKEN =
             null // this will never be filled. but it's there for graceful error handling (and maybe some dangerous debugging
         const val DEFAULT_SAVED_TEXT = ""

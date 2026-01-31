@@ -1,6 +1,7 @@
 package space.httpjames.kagiassistantmaterial.ui.viewmodel
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
@@ -11,6 +12,7 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import androidx.core.content.ContextCompat
+import androidx.core.content.edit
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -61,7 +63,9 @@ data class OverlayUiState(
 /**
  * ViewModel for the overlay screen.
  * Manages overlay state using StateFlow.
+ * Note: context is applicationContext, passed via OverlayViewModelFactory to avoid leaks.
  */
+@SuppressLint("StaticFieldLeak")
 class OverlayViewModel(
     private val assistantClient: AssistantClient,
     private val prefs: SharedPreferences,
@@ -79,7 +83,8 @@ class OverlayViewModel(
     val uiState: StateFlow<OverlayUiState> = _uiState.asStateFlow()
 
     private val ttsManager = TtsManager(
-        context,
+        context = context,
+        prefs = prefs,
         onStart = { _uiState.update { it.copy(isSpeaking = true) } },
         onDone = { _uiState.update { it.copy(isSpeaking = false) } }
     )
@@ -119,17 +124,25 @@ class OverlayViewModel(
             _uiState.update { it.copy(isListening = false) }
         }
 
-        override fun onBeginningOfSpeech() {}
-        override fun onRmsChanged(db: Float) {}
-        override fun onBufferReceived(b: ByteArray?) {}
-        override fun onEvent(e: Int, b: Bundle?) {}
+        override fun onBeginningOfSpeech() {
+            // Unused
+        }
+        override fun onRmsChanged(db: Float) {
+            // Unused
+        }
+        override fun onBufferReceived(b: ByteArray?) {
+            // Unused
+        }
+        override fun onEvent(e: Int, b: Bundle?) {
+            // Unused
+        }
     }
 
     init {
         speechRecognizer.setRecognitionListener(listener)
         val useMiniOverlay = prefs.getBoolean(
             PreferenceKey.USE_MINI_OVERLAY.key,
-            PreferenceKey.DEFAULT_USE_MINI_OVERLAY
+            true
         )
         if (useMiniOverlay) {
             if (_uiState.value.permissionOk) {
@@ -166,15 +179,17 @@ class OverlayViewModel(
     // ========== Actions ==========
 
     fun saveText() {
-        prefs.edit().putString(PreferenceKey.SAVED_TEXT.key, _uiState.value.text).apply()
+        prefs.edit { putString(PreferenceKey.SAVED_TEXT.key, _uiState.value.text) }
     }
 
     fun saveThreadId() {
         println("saving thread id ${_uiState.value.currentThreadId}")
-        prefs.edit().putString(
-            PreferenceKey.SAVED_THREAD_ID.key,
-            _uiState.value.currentThreadId
-        ).apply()
+        prefs.edit {
+            putString(
+                PreferenceKey.SAVED_THREAD_ID.key,
+                _uiState.value.currentThreadId
+            )
+        }
     }
 
     fun sendMessage() {
@@ -383,17 +398,20 @@ fun stripMarkdown(input: String): String =
     input.replace(Regex("""[*_`~#\[\]()|>]+"""), "")
 
 /**
- * Factory for creating OverlayViewModel with dependencies
+ * Factory for creating OverlayViewModel with dependencies.
+ * Uses applicationContext to avoid context leaks in ViewModel.
  */
 class OverlayViewModelFactory(
     private val assistantClient: AssistantClient,
     private val prefs: SharedPreferences,
-    private val context: Context
+    context: Context
 ) : androidx.lifecycle.ViewModelProvider.Factory {
+    private val applicationContext: Context = context.applicationContext
+
     @Suppress("UNCHECKED_CAST")
     override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(OverlayViewModel::class.java)) {
-            return OverlayViewModel(assistantClient, prefs, context) as T
+            return OverlayViewModel(assistantClient, prefs, applicationContext) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

@@ -10,8 +10,10 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import space.httpjames.kagiassistantmaterial.data.repository.AssistantRepository
 import space.httpjames.kagiassistantmaterial.ui.message.AssistantProfile
+import space.httpjames.kagiassistantmaterial.ui.settings.VoiceOption
 import space.httpjames.kagiassistantmaterial.utils.DataFetchingState
 import space.httpjames.kagiassistantmaterial.utils.PreferenceKey
+import androidx.core.content.edit
 
 /**
  * UI state for the Settings screen
@@ -26,7 +28,11 @@ data class SettingsUiState(
     val selectedAssistantModel: String = PreferenceKey.DEFAULT_ASSISTANT_MODEL,
     val selectedAssistantModelName: String? = null,
     val useMiniOverlay: Boolean = PreferenceKey.DEFAULT_USE_MINI_OVERLAY,
-    val stickyScrollEnabled: Boolean = PreferenceKey.DEFAULT_STICKY_SCROLL
+    val stickyScrollEnabled: Boolean = PreferenceKey.DEFAULT_STICKY_SCROLL,
+    val availableVoices: List<VoiceOption> = emptyList(),
+    val selectedTtsVoice: String = PreferenceKey.DEFAULT_TTS_VOICE,
+    val selectedTtsVoiceDisplayName: String? = null,
+    val showVoiceChooserModal: Boolean = false
 )
 
 /**
@@ -57,7 +63,9 @@ class SettingsViewModel(
             stickyScrollEnabled = prefs.getBoolean(
                 PreferenceKey.STICKY_SCROLL.key,
                 PreferenceKey.DEFAULT_STICKY_SCROLL
-            )
+            ),
+            selectedTtsVoice = prefs.getString(PreferenceKey.TTS_VOICE.key, null)
+                ?: PreferenceKey.DEFAULT_TTS_VOICE
         )
     )
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
@@ -92,7 +100,7 @@ class SettingsViewModel(
     fun toggleUseMiniOverlay() {
         val newValue = !_uiState.value.useMiniOverlay
         _uiState.update { it.copy(useMiniOverlay = newValue) }
-        prefs.edit().putBoolean(PreferenceKey.USE_MINI_OVERLAY.key, newValue).apply()
+        prefs.edit { putBoolean(PreferenceKey.USE_MINI_OVERLAY.key, newValue) }
     }
 
     fun showAssistantModelChooser() {
@@ -104,7 +112,7 @@ class SettingsViewModel(
     }
 
     fun saveAssistantModel(key: String) {
-        prefs.edit().putString(PreferenceKey.ASSISTANT_MODEL.key, key).apply()
+        prefs.edit { putString(PreferenceKey.ASSISTANT_MODEL.key, key) }
         _uiState.update {
             it.copy(
                 selectedAssistantModel = key,
@@ -123,25 +131,26 @@ class SettingsViewModel(
     fun toggleOpenKeyboardAutomatically() {
         val newValue = !_uiState.value.openKeyboardAutomatically
         _uiState.update { it.copy(openKeyboardAutomatically = newValue) }
-        prefs.edit().putBoolean(PreferenceKey.OPEN_KEYBOARD_AUTOMATICALLY.key, newValue).apply()
+        prefs.edit { putBoolean(PreferenceKey.OPEN_KEYBOARD_AUTOMATICALLY.key, newValue) }
     }
 
     fun toggleAutoSpeakReplies() {
         val newValue = !_uiState.value.autoSpeakReplies
         _uiState.update { it.copy(autoSpeakReplies = newValue) }
-        prefs.edit().putBoolean(PreferenceKey.AUTO_SPEAK_REPLIES.key, newValue).apply()
+        prefs.edit { putBoolean(PreferenceKey.AUTO_SPEAK_REPLIES.key, newValue) }
     }
 
     fun clearAllPrefs() {
-        prefs.edit().clear().apply()
-        // Reset state to defaults
+        prefs.edit { clear() }
         _uiState.update {
             SettingsUiState(
                 autoSpeakReplies = PreferenceKey.DEFAULT_AUTO_SPEAK_REPLIES,
                 openKeyboardAutomatically = PreferenceKey.DEFAULT_OPEN_KEYBOARD_AUTOMATICALLY,
                 selectedAssistantModel = PreferenceKey.DEFAULT_ASSISTANT_MODEL,
                 useMiniOverlay = PreferenceKey.DEFAULT_USE_MINI_OVERLAY,
-                stickyScrollEnabled = PreferenceKey.DEFAULT_STICKY_SCROLL
+                stickyScrollEnabled = PreferenceKey.DEFAULT_STICKY_SCROLL,
+                selectedTtsVoice = PreferenceKey.DEFAULT_TTS_VOICE,
+                selectedTtsVoiceDisplayName = null
             )
         }
     }
@@ -149,6 +158,30 @@ class SettingsViewModel(
     fun toggleStickyScroll() {
         val newValue = !_uiState.value.stickyScrollEnabled
         _uiState.update { it.copy(stickyScrollEnabled = newValue) }
-        prefs.edit().putBoolean(PreferenceKey.STICKY_SCROLL.key, newValue).apply()
+        prefs.edit { putBoolean(PreferenceKey.STICKY_SCROLL.key, newValue) }
+    }
+
+    fun setAvailableVoices(voices: List<VoiceOption>) {
+        val selectedVoice = _uiState.value.selectedTtsVoice
+        val displayName = voices.find { it.name == selectedVoice }?.displayName
+        _uiState.update {
+            it.copy(availableVoices = voices, selectedTtsVoiceDisplayName = displayName)
+        }
+    }
+
+    fun showVoiceChooser() {
+        _uiState.update { it.copy(showVoiceChooserModal = true) }
+    }
+
+    fun hideVoiceChooser() {
+        _uiState.update { it.copy(showVoiceChooserModal = false) }
+    }
+
+    fun saveTtsVoice(voiceName: String) {
+        prefs.edit { putString(PreferenceKey.TTS_VOICE.key, voiceName) }
+        val displayName = _uiState.value.availableVoices.find { it.name == voiceName }?.displayName
+        _uiState.update {
+            it.copy(selectedTtsVoice = voiceName, selectedTtsVoiceDisplayName = displayName)
+        }
     }
 }

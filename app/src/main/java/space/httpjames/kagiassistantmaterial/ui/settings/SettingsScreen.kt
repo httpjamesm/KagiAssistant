@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material.icons.filled.PhoneInTalk
 import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Stars
 import androidx.compose.material.icons.filled.VerticalAlignBottom
@@ -41,9 +42,15 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.res.stringResource
+import space.httpjames.kagiassistantmaterial.R
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -60,6 +67,7 @@ import space.httpjames.kagiassistantmaterial.Screens
 import space.httpjames.kagiassistantmaterial.ui.viewmodel.AssistantViewModelFactory
 import space.httpjames.kagiassistantmaterial.ui.viewmodel.SettingsViewModel
 import space.httpjames.kagiassistantmaterial.utils.DataFetchingState
+import space.httpjames.kagiassistantmaterial.utils.TtsManager
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,6 +84,26 @@ fun SettingsScreen(
         factory = AssistantViewModelFactory(assistantClient, prefs, cacheDir)
     )
     val uiState by viewModel.uiState.collectAsState()
+
+    var ttsManager by remember { mutableStateOf<TtsManager?>(null) }
+
+    DisposableEffect(Unit) {
+        var manager: TtsManager? = null
+        manager = TtsManager(
+            context = context,
+            prefs = prefs,
+            onStart = {},
+            onDone = {},
+            onReady = {
+                manager?.let { viewModel.setAvailableVoices(it.getAvailableVoices()) }
+            }
+        )
+        ttsManager = manager
+
+        onDispose {
+            manager?.release()
+        }
+    }
 
     val coroutineScope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
@@ -215,13 +243,25 @@ fun SettingsScreen(
                     icon = Icons.Default.PhoneInTalk,
                     title = "Speak replies",
                     subtitle = "Read aloud assistant replies",
-                    pos = SettingsItemPosition.BOTTOM,
+                    pos = SettingsItemPosition.MIDDLE,
                     iconBackgroundColor = MaterialTheme.colorScheme.primaryContainer,
                     iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
                     rightSide = {
                         Switch(checked = uiState.autoSpeakReplies, onCheckedChange = {
                             viewModel.toggleAutoSpeakReplies()
                         })
+                    }
+                )
+                SettingsItem(
+                    icon = Icons.Default.RecordVoiceOver,
+                    title = "Voice",
+                    subtitle = uiState.selectedTtsVoiceDisplayName
+                        ?: stringResource(R.string.default_tts_voice),
+                    pos = SettingsItemPosition.BOTTOM,
+                    iconBackgroundColor = MaterialTheme.colorScheme.primaryContainer,
+                    iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    onClick = {
+                        viewModel.showVoiceChooser()
                     }
                 )
 
@@ -297,7 +337,7 @@ fun SettingsScreen(
                     }
                 )
             }
-            
+
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -379,6 +419,35 @@ fun SettingsScreen(
                 viewModel.saveAssistantModel(it)
             },
             selectedKey = uiState.selectedAssistantModel
+        )
+    }
+
+    if (uiState.showVoiceChooserModal) {
+        VoiceChooserModal(
+            voices = uiState.availableVoices,
+            onDismiss = {
+                ttsManager?.stop()
+                if (uiState.selectedTtsVoice.isNotEmpty()) {
+                    ttsManager?.setVoice(uiState.selectedTtsVoice)
+                } else {
+                    ttsManager?.resetToDefaultVoice()
+                }
+                viewModel.hideVoiceChooser()
+            },
+            onVoiceSelected = { voiceName ->
+                ttsManager?.stop()
+                viewModel.saveTtsVoice(voiceName)
+                if (voiceName.isNotEmpty()) {
+                    ttsManager?.setVoice(voiceName)
+                } else {
+                    ttsManager?.resetToDefaultVoice()
+                }
+                viewModel.hideVoiceChooser()
+            },
+            onPreviewVoice = { voiceName ->
+                ttsManager?.previewVoice(voiceName)
+            },
+            selectedVoiceName = uiState.selectedTtsVoice
         )
     }
 }

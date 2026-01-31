@@ -5,20 +5,25 @@ import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
-import java.util.UUID
 
 /**
  * Example local unit test, which will execute on the development machine (host).
  *
  * See [testing documentation](http://d.android.com/tools/testing).
  */
-
-const val SESSION_TOKEN =
-    ""
-
 class AssistantClientUnitTest {
-    val assistantClient = AssistantClient(SESSION_TOKEN)
+    private lateinit var assistantClient: AssistantClient
+
+    companion object {
+        private val SESSION_TOKEN: String? = System.getenv("KAGI_SESSION_TOKEN")
+    }
+
+    @Before
+    fun setup() {
+        assistantClient = AssistantClient(SESSION_TOKEN ?: "")
+    }
 
     @Test
     fun addition_isCorrect() {

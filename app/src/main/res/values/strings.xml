@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Assistant</string>
+    <string name="default_tts_voice">Device Default</string>
 </resources>
