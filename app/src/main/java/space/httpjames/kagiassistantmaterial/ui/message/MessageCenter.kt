@@ -234,7 +234,8 @@ fun MessageCenter(
                         viewModel.openModelBottomSheet()
                         haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     },
-                    contentPadding = PaddingValues(horizontal = 16.dp)
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    modifier = Modifier.weight(1f, fill = false)
                 ) {
                     Text(
                         text = viewModel.getProfile()?.name?.replace("(preview)", "")?.trim()
