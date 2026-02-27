@@ -6,12 +6,17 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.Cookie
 import okhttp3.CookieJar
 import okhttp3.Headers
@@ -122,10 +127,30 @@ data class KagiPromptRequestThreads(
     val shared: Boolean,
 )
 
+data class ThreadListResponse(
+    val threads: Map<String, MutableList<AssistantThread>>,
+    val nextCursor: JsonElement?,
+    val hasMore: Boolean,
+    val count: Int,
+    val totalCounts: JsonElement?,
+)
+
+@Serializable
+data class ThreadSearchResult(
+    val thread_id: String,
+    val title: String = "",
+    val snippet: String = "",
+)
+
 data class StreamChunk(
     val header: String,
     val data: String,
     val done: Boolean,
+)
+
+data class ThreadPageData(
+    val title: String?,
+    val messagesJson: String,
 )
 
 data class QrRemoteSessionDetails(
@@ -344,6 +369,45 @@ class AssistantClient(
         }
     }
 
+    suspend fun fetchThreadPage(threadId: String): ThreadPageData = withContext(Dispatchers.IO) {
+        val request = Request.Builder()
+            .url("https://kagi.com/assistant/$threadId")
+            .headers(baseHeaders)
+            .get()
+            .build()
+
+        okHttpClient.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) {
+                throw IOException("HTTP error ${response.code}: ${response.message}")
+            }
+            val body = response.body?.string()
+                ?: throw IOException("Empty response body")
+            val doc = Jsoup.parse(body)
+
+            val suffix = " - Kagi Assistant"
+            val rawTitle = doc.selectFirst("title")?.text()
+            val title = if (rawTitle != null && rawTitle.contains(suffix)) {
+                rawTitle.substringBeforeLast(suffix)
+            } else {
+                rawTitle
+            }
+
+            val messageListElement = doc.selectFirst("#json-message-list")
+                ?: throw IOException("Could not find #json-message-list element")
+
+            val rawHtml = messageListElement.html()
+            // Decode HTML entities; handle " &quot;" (space+entity) that shouldn't be in JSON
+            val decoded = rawHtml
+                .replace(" &quot;", "\"")
+                .replace("&quot;", "\"")
+                .replace("&lt;", "<")
+                .replace("&gt;", ">")
+                .replace("&amp;", "&")
+
+            ThreadPageData(title = title, messagesJson = decoded)
+        }
+    }
+
     suspend fun getProfiles(): List<AssistantProfile> {
         val profiles = mutableListOf<AssistantProfile>()
 
@@ -369,15 +433,56 @@ class AssistantClient(
         return profiles
     }
 
-    suspend fun getThreads(): Map<String, List<AssistantThread>>? {
+    suspend fun getThreads(cursor: JsonElement? = null): ThreadListResponse? {
+        val body = if (cursor != null) {
+            """{"cursor":$cursor}"""
+        } else {
+            "{}"
+        }
+
         return fetchStream(
             url = "https://kagi.com/assistant/thread_list",
             method = "POST",
-            body = "{}",
+            body = body,
             extraHeaders = mapOf("Content-Type" to "application/json")
         )
             .firstOrNull { it.header == "thread_list.html" }
-            ?.let { it.data.parseThreadListHtml() }
+            ?.let { parseThreadListJsonWrapper(it.data) }
+    }
+
+    suspend fun searchThreads(query: String): List<ThreadSearchResult> {
+        val body = """{"q":"${
+            query.uppercase().replace("\"", "\\\"")
+        }","saved":null,"shared":null,"tag_id":null}"""
+        val request = buildRequest(
+            url = "https://kagi.com/assistant/search",
+            method = "POST",
+            body = body,
+            extraHeaders = mapOf("Content-Type" to "application/json")
+        )
+
+        return withContext(Dispatchers.IO) {
+            okHttpClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return@withContext emptyList()
+                val responseBody = response.body?.string() ?: return@withContext emptyList()
+                try {
+                    val jsonElement = Json.parseToJsonElement(responseBody)
+                    val results = jsonElement?.jsonArray
+                        ?: return@withContext emptyList()
+                    results.map { element ->
+                        val obj = element.jsonObject
+                        ThreadSearchResult(
+                            thread_id = obj["thread_id"]?.jsonPrimitive?.contentOrNull ?: "",
+                            title = obj["title"]?.jsonPrimitive?.contentOrNull ?: "",
+                            snippet = obj["snippet"]?.jsonPrimitive?.contentOrNull ?: "",
+                        )
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    emptyList()
+                }
+            }
+        }
     }
 
     /**
@@ -564,4 +669,33 @@ fun String.parseThreadListHtml(): MutableMap<String, MutableList<AssistantThread
     }
 
     return threadMap
+}
+
+fun parseThreadListJsonWrapper(data: String): ThreadListResponse {
+    return try {
+        val jsonElement = Json.parseToJsonElement(data)
+        val obj = jsonElement.jsonObject
+        val html = obj["html"]?.jsonPrimitive?.contentOrNull ?: ""
+        val nextCursor = obj["next_cursor"]
+        val hasMore = obj["has_more"]?.jsonPrimitive?.booleanOrNull ?: false
+        val count = obj["count"]?.jsonPrimitive?.intOrNull ?: 0
+        val totalCounts = obj["total_counts"]
+
+        ThreadListResponse(
+            threads = html.parseThreadListHtml(),
+            nextCursor = nextCursor,
+            hasMore = hasMore,
+            count = count,
+            totalCounts = totalCounts,
+        )
+    } catch (e: Exception) {
+        // Fallback: treat data as raw HTML (backward compatibility)
+        ThreadListResponse(
+            threads = data.parseThreadListHtml(),
+            nextCursor = null,
+            hasMore = false,
+            count = 0,
+            totalCounts = null,
+        )
+    }
 }

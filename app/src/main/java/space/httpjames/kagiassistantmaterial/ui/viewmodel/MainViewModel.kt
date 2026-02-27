@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -34,9 +35,11 @@ import space.httpjames.kagiassistantmaterial.KagiPromptRequestThreads
 import space.httpjames.kagiassistantmaterial.MessageDto
 import space.httpjames.kagiassistantmaterial.MultipartAssistantPromptFile
 import space.httpjames.kagiassistantmaterial.StreamChunk
+import space.httpjames.kagiassistantmaterial.ThreadSearchResult
 import space.httpjames.kagiassistantmaterial.data.repository.AssistantRepository
 import space.httpjames.kagiassistantmaterial.parseMetadata
 import space.httpjames.kagiassistantmaterial.parseThreadListHtml
+import space.httpjames.kagiassistantmaterial.parseThreadListJsonWrapper
 import space.httpjames.kagiassistantmaterial.toObject
 import space.httpjames.kagiassistantmaterial.ui.message.AssistantProfile
 import space.httpjames.kagiassistantmaterial.ui.message.copyToTempFile
@@ -55,7 +58,14 @@ import kotlin.io.encoding.ExperimentalEncodingApi
 data class ThreadsUiState(
     val callState: DataFetchingState = DataFetchingState.FETCHING,
     val threads: Map<String, List<AssistantThread>> = emptyMap(),
-    val currentThreadId: String? = null
+    val currentThreadId: String? = null,
+    val nextCursor: JsonElement? = null,
+    val hasMore: Boolean = false,
+    val isLoadingMore: Boolean = false,
+    val searchQuery: String = "",
+    val searchResults: List<ThreadSearchResult>? = null,
+    val isSearching: Boolean = false,
+    val isLoadingSearchPages: Boolean = false,
 )
 
 /**
@@ -140,10 +150,12 @@ class MainViewModel(
         viewModelScope.launch {
             try {
                 _threadsState.update { it.copy(callState = DataFetchingState.FETCHING) }
-                val threads = repository.getThreads()
+                val response = repository.getThreads()
                 _threadsState.update {
                     it.copy(
-                        threads = threads,
+                        threads = response.threads,
+                        nextCursor = response.nextCursor,
+                        hasMore = response.hasMore,
                         callState = DataFetchingState.OK
                     )
                 }
@@ -151,6 +163,93 @@ class MainViewModel(
                 println("Error fetching threads: ${e.message}")
                 e.printStackTrace()
                 _threadsState.update { it.copy(callState = DataFetchingState.ERRORED) }
+            }
+        }
+    }
+
+    fun loadMoreThreads() {
+        val state = _threadsState.value
+        if (state.isLoadingMore || !state.hasMore || state.nextCursor == null) return
+
+        viewModelScope.launch {
+            try {
+                _threadsState.update { it.copy(isLoadingMore = true) }
+                val response = repository.getThreads(cursor = state.nextCursor)
+
+                _threadsState.update { current ->
+                    val mergedThreads = current.threads.toMutableMap()
+                    for ((category, newThreads) in response.threads) {
+                        val existing = mergedThreads[category]?.toMutableList() ?: mutableListOf()
+                        existing.addAll(newThreads)
+                        mergedThreads[category] = existing
+                    }
+                    current.copy(
+                        threads = mergedThreads,
+                        nextCursor = response.nextCursor,
+                        hasMore = response.hasMore,
+                        isLoadingMore = false
+                    )
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _threadsState.update { it.copy(isLoadingMore = false) }
+            }
+        }
+    }
+
+    private var searchJob: Job? = null
+
+    fun searchThreads(query: String) {
+        _threadsState.update { it.copy(searchQuery = query) }
+
+        searchJob?.cancel()
+
+        if (query.isBlank()) {
+            _threadsState.update { it.copy(searchResults = null, isSearching = false, isLoadingSearchPages = false) }
+            return
+        }
+
+        // For short queries, do client-side filtering only
+        if (query.length < 3) {
+            _threadsState.update { it.copy(searchResults = null, isSearching = false, isLoadingSearchPages = false) }
+            return
+        }
+
+        searchJob = viewModelScope.launch {
+            _threadsState.update { it.copy(isSearching = true, isLoadingSearchPages = false) }
+            try {
+                // Fire search API call immediately
+                val results = repository.searchThreads(query)
+                _threadsState.update { it.copy(
+                    searchResults = results,
+                    isSearching = false,
+                    isLoadingSearchPages = _threadsState.value.hasMore
+                ) }
+
+                // Load remaining pages in background so more matches appear progressively
+                while (_threadsState.value.hasMore && _threadsState.value.nextCursor != null) {
+                    val cursor = _threadsState.value.nextCursor
+                    val response = repository.getThreads(cursor = cursor)
+                    _threadsState.update { current ->
+                        val merged = current.threads.toMutableMap()
+                        for ((category, newThreads) in response.threads) {
+                            val existing = merged[category]?.toMutableList() ?: mutableListOf()
+                            existing.addAll(newThreads)
+                            merged[category] = existing
+                        }
+                        current.copy(
+                            threads = merged,
+                            nextCursor = response.nextCursor,
+                            hasMore = response.hasMore,
+                            isLoadingSearchPages = response.hasMore,
+                        )
+                    }
+                }
+
+                _threadsState.update { it.copy(isLoadingSearchPages = false) }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _threadsState.update { it.copy(searchResults = emptyList(), isSearching = false, isLoadingSearchPages = false) }
             }
         }
     }
@@ -188,7 +287,14 @@ class MainViewModel(
     }
 
     fun toggleIsTemporaryChat() {
-        updateSession(currentSessionKey) { session ->
+        val sessionKey = currentSessionKey ?: run {
+            val tempId = "temp:${UUID.randomUUID()}"
+            threadSessions[tempId] = ThreadSession(threadId = null)
+            updateGeneratingThreadsState()
+            setActiveSession(tempId)
+            tempId
+        }
+        updateSession(sessionKey) { session ->
             session.copy(isTemporaryChat = !session.isTemporaryChat)
         }
     }
@@ -236,66 +342,53 @@ class MainViewModel(
 
         viewModelScope.launch {
             try {
-                repository.fetchStream(
-                    url = "https://kagi.com/assistant/thread_open",
-                    method = "POST",
-                    body = """{"focus":{"thread_id":"$threadId"}}""",
-                    extraHeaders = mapOf("Content-Type" to "application/json")
-                ).collect { chunk ->
-                    when (chunk.header) {
-                        "thread.json" -> {
-                            val thread = Json.parseToJsonElement(chunk.data)
-                            val title = thread.jsonObject["title"]?.jsonPrimitive?.content
-                            updateSession(sessionKey) { it.copy(currentThreadTitle = title) }
-                        }
+                val pageData = repository.fetchThreadPage(threadId)
 
-                        "messages.json" -> {
-                            val dtoList = Json.parseToJsonElement(chunk.data)
-                                .toObject<List<MessageDto>>()
+                updateSession(sessionKey) { it.copy(currentThreadTitle = pageData.title) }
 
-                            val messages = dtoList.flatMap { dto ->
-                                val docs = dto.documents.map { d ->
-                                    AssistantThreadMessageDocument(
-                                        id = d.id,
-                                        name = d.name,
-                                        mime = d.mime,
-                                        data = if (d.mime.startsWith("image"))
-                                            d.data?.decodeDataUriToBitmap()
-                                        else null
-                                    )
-                                }
+                val dtoList = Json.parseToJsonElement(pageData.messagesJson)
+                    .toObject<List<MessageDto>>()
 
-                                val citations = parseReferencesHtml(dto.references_html)
-
-                                listOf(
-                                    AssistantThreadMessage(
-                                        id = dto.id,
-                                        content = dto.prompt,
-                                        role = AssistantThreadMessageRole.USER,
-                                        documents = docs,
-                                        branchIds = dto.branch_list,
-                                        finishedGenerating = true
-                                    ),
-                                    AssistantThreadMessage(
-                                        id = "${dto.id}.reply",
-                                        content = dto.reply,
-                                        role = AssistantThreadMessageRole.ASSISTANT,
-                                        citations = citations,
-                                        branchIds = dto.branch_list,
-                                        finishedGenerating = true,
-                                        markdownContent = dto.md,
-                                        metadata = parseMetadata(dto.metadata)
-                                    )
-                                )
-                            }
-                            updateSession(sessionKey) {
-                                it.copy(
-                                    messages = messages.toMutableList(),
-                                    callState = DataFetchingState.OK
-                                )
-                            }
-                        }
+                val messages = dtoList.flatMap { dto ->
+                    val docs = dto.documents.map { d ->
+                        AssistantThreadMessageDocument(
+                            id = d.id,
+                            name = d.name,
+                            mime = d.mime,
+                            data = if (d.mime.startsWith("image"))
+                                d.data?.decodeDataUriToBitmap()
+                            else null
+                        )
                     }
+
+                    val citations = parseReferencesHtml(dto.references_html)
+
+                    listOf(
+                        AssistantThreadMessage(
+                            id = dto.id,
+                            content = dto.prompt,
+                            role = AssistantThreadMessageRole.USER,
+                            documents = docs,
+                            branchIds = dto.branch_list,
+                            finishedGenerating = true
+                        ),
+                        AssistantThreadMessage(
+                            id = "${dto.id}.reply",
+                            content = dto.reply,
+                            role = AssistantThreadMessageRole.ASSISTANT,
+                            citations = citations,
+                            branchIds = dto.branch_list,
+                            finishedGenerating = true,
+                            markdownContent = dto.md,
+                            metadata = parseMetadata(dto.metadata)
+                        )
+                    )
+                }
+                updateSession(sessionKey) {
+                    it.copy(
+                        messages = messages.toMutableList(),
+                        callState = DataFetchingState.OK
+                    )
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -678,9 +771,12 @@ class MainViewModel(
                     }
 
                     "thread_list.html" -> {
+                        val response = parseThreadListJsonWrapper(chunk.data)
                         _threadsState.update {
                             it.copy(
-                                threads = chunk.data.parseThreadListHtml()
+                                threads = response.threads,
+                                nextCursor = response.nextCursor,
+                                hasMore = response.hasMore,
                             )
                         }
                     }
