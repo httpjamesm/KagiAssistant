@@ -36,6 +36,7 @@ enum class ChatActionIcon {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun Header(
+    currentThreadId: String?,
     threadTitle: String?,
     onMenuClick: () -> Unit,
     onNewChatClick: () -> Unit,
@@ -47,7 +48,7 @@ fun Header(
     var showMenu by remember { mutableStateOf(false) }
 
     val iconState = when {
-        threadTitle != null || isTemporaryChat -> ChatActionIcon.NewChat
+        currentThreadId != null || isTemporaryChat -> ChatActionIcon.NewChat
         else -> ChatActionIcon.TemporaryChat
     }
 
@@ -105,7 +106,9 @@ fun Header(
         },
         actions = {
             IconButton(
-                onClick = if (threadTitle != null) onNewChatClick else onTemporaryChatClick,
+                onClick = {
+                    if (currentThreadId != null) onNewChatClick() else onTemporaryChatClick()
+                },
                 enabled = true
             ) {
                 Crossfade(

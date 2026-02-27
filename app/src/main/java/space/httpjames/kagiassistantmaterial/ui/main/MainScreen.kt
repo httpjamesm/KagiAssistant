@@ -41,12 +41,12 @@ import androidx.navigation.NavController
 import kotlinx.coroutines.launch
 import space.httpjames.kagiassistantmaterial.AssistantClient
 import space.httpjames.kagiassistantmaterial.Screens
-import space.httpjames.kagiassistantmaterial.utils.PreferenceKey
 import space.httpjames.kagiassistantmaterial.ui.chat.ChatArea
 import space.httpjames.kagiassistantmaterial.ui.message.MessageCenter
 import space.httpjames.kagiassistantmaterial.ui.shared.Header
 import space.httpjames.kagiassistantmaterial.ui.viewmodel.AssistantViewModelFactory
 import space.httpjames.kagiassistantmaterial.ui.viewmodel.MainViewModel
+import space.httpjames.kagiassistantmaterial.utils.PreferenceKey
 
 @Composable
 fun MainScreen(
@@ -143,36 +143,44 @@ fun MainScreen(
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
-                ThreadsDrawerSheet(
-                    threads = threadsState.threads,
-                    onThreadSelected = {
-                        scope.launch {
-                            viewModel.onThreadSelected(it)
-                            drawerState.close()
-                        }
-                    },
-                    callState = threadsState.callState,
-                    onSettingsClick = {
-                        scope.launch {
-                            navController.navigate(Screens.SETTINGS.route)
-                            drawerState.close()
-                        }
-                    },
-                    onRetryClick = {
-                        scope.launch {
-                            viewModel.fetchThreads()
-                        }
-                    },
-                    predictiveBackProgress = predictiveBackProgress,
-                    currentThreadId = threadsState.currentThreadId,
-                    generatingThreadIds = generatingThreads,
-                )
+            ThreadsDrawerSheet(
+                threads = threadsState.threads,
+                onThreadSelected = {
+                    scope.launch {
+                        viewModel.onThreadSelected(it)
+                        drawerState.close()
+                    }
+                },
+                callState = threadsState.callState,
+                onSettingsClick = {
+                    scope.launch {
+                        navController.navigate(Screens.SETTINGS.route)
+                        drawerState.close()
+                    }
+                },
+                onRetryClick = {
+                    scope.launch {
+                        viewModel.fetchThreads()
+                    }
+                },
+                predictiveBackProgress = predictiveBackProgress,
+                currentThreadId = threadsState.currentThreadId,
+                generatingThreadIds = generatingThreads,
+                hasMore = threadsState.hasMore,
+                isLoadingMore = threadsState.isLoadingMore,
+                onLoadMore = { viewModel.loadMoreThreads() },
+                searchResults = threadsState.searchResults,
+                isSearching = threadsState.isSearching,
+                isLoadingSearchPages = threadsState.isLoadingSearchPages,
+                onSearch = { viewModel.searchThreads(it) },
+            )
 
         }) {
         Scaffold(
             modifier = modifier.fillMaxSize(),
             topBar = {
                 Header(
+                    currentThreadId = threadsState.currentThreadId,
                     threadTitle = messagesState.currentThreadTitle,
                     onMenuClick = { scope.launch { drawerState.open() } },
                     onNewChatClick = { viewModel.newChat() },
