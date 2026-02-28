@@ -58,6 +58,7 @@ import space.httpjames.kagiassistantmaterial.AssistantClient
 import space.httpjames.kagiassistantmaterial.ui.chat.cleanup.ChatCleanupManager
 import space.httpjames.kagiassistantmaterial.ui.main.ModelBottomSheet
 import space.httpjames.kagiassistantmaterial.ui.viewmodel.MainViewModel
+import space.httpjames.kagiassistantmaterial.utils.PreferenceKey
 
 @Composable
 fun MessageCenter(
@@ -107,6 +108,14 @@ fun MessageCenter(
 
     // set the web search default based on the profile's returned default
     LaunchedEffect(viewModel.getProfile()) {
+        val autoToggleInternet = prefs.getBoolean(
+            PreferenceKey.AUTO_TOGGLE_INTERNET.key,
+            PreferenceKey.DEFAULT_AUTO_TOGGLE_INTERNET
+        )
+        if (!autoToggleInternet) {
+            return@LaunchedEffect
+        }
+
         val internetAccess = viewModel.getProfile()?.internetAccess ?: return@LaunchedEffect
 
         if (internetAccess != messageCenterState.isSearchEnabled) {
