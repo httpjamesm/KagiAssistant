@@ -5,8 +5,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.provider.Settings
 import android.service.voice.VoiceInteractionService
-import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Assistant
 import androidx.compose.material.icons.filled.HomeMini
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Logout
@@ -109,16 +108,11 @@ fun SettingsScreen(
     val coroutineScope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
     val uriHandler = LocalUriHandler.current
-
     val packageInfo = context.packageManager.getPackageInfo(
         context.packageName,
         0
     )
-
-    BackHandler(enabled = true) {
-        navController.popBackStack()
-    }
-
+    
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
@@ -339,6 +333,7 @@ fun SettingsScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 SettingsItem(
                     icon = Icons.Default.Public,
@@ -357,19 +352,33 @@ fun SettingsScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 SettingsItem(
                     icon = Icons.Default.Refresh,
                     title = "Check for updates",
                     subtitle = "Version v${packageInfo.versionName}",
-                    pos = SettingsItemPosition.SINGLE,
+                    pos = SettingsItemPosition.TOP,
                     iconBackgroundColor = MaterialTheme.colorScheme.primaryContainer,
                     iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
                     onClick = {
                         uriHandler.openUri("https://github.com/httpjamesm/KagiAssistant/releases")
                     }
                 )
+
+                SettingsItem(
+                    icon = Icons.Default.Info,
+                    title = "About",
+                    subtitle = "Miscellaneous information",
+                    pos = SettingsItemPosition.BOTTOM,
+                    iconBackgroundColor = MaterialTheme.colorScheme.primaryContainer,
+                    iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    onClick = {
+                        navController.navigate(Screens.ABOUT.route)
+                    }
+                )
             }
+
 
             Column(
                 modifier = Modifier
@@ -392,37 +401,8 @@ fun SettingsScreen(
                 )
             }
 
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(
-                    "Source Code",
-                    textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.labelMedium,
-                    modifier = Modifier.clickable {
-                        uriHandler.openUri("https://github.com/httpjamesm/KagiAssistant")
-                    },
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    "© http.james",
-                    textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.clickable {
-                        uriHandler.openUri("https://httpjames.space")
-                    },
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    "Not officially endorsed by Kagi Inc.",
-                    textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.labelSmall
-                )
-            }
+            Spacer(modifier = Modifier.height(16.dp))
+
         }
     }
 
