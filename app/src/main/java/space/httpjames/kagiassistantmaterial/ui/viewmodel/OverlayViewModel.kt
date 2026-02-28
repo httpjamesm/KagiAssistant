@@ -18,6 +18,7 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
@@ -348,9 +349,9 @@ class OverlayViewModel(
                 val sharedFlow = StreamingSessionManager.getStream(streamId)
                 StreamingSessionManager.requestStream(context, streamRequest)
 
-                sharedFlow.collect { chunk ->
+                sharedFlow.first { chunk ->
                     onChunk(chunk)
-                    if (chunk.done) return@collect
+                    chunk.done
                 }
 
                 _uiState.update {

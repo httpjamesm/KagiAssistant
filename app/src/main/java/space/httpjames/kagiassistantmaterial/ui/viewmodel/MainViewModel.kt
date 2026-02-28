@@ -14,6 +14,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -37,6 +38,7 @@ import space.httpjames.kagiassistantmaterial.MultipartAssistantPromptFile
 import space.httpjames.kagiassistantmaterial.StreamChunk
 import space.httpjames.kagiassistantmaterial.ThreadSearchResult
 import space.httpjames.kagiassistantmaterial.data.repository.AssistantRepository
+import space.httpjames.kagiassistantmaterial.streaming.StreamMetadata
 import space.httpjames.kagiassistantmaterial.streaming.StreamRequest
 import space.httpjames.kagiassistantmaterial.streaming.StreamingSessionManager
 import space.httpjames.kagiassistantmaterial.parseMetadata
@@ -757,6 +759,8 @@ class MainViewModel(
                 }
             }
 
+            val streamId = "main:${activeSessionKey}:${System.currentTimeMillis()}"
+
             suspend fun onChunk(chunk: StreamChunk) {
                 when (chunk.header) {
                     "thread.json" -> {
@@ -771,6 +775,7 @@ class MainViewModel(
                         val title = json.jsonObject["title"]?.jsonPrimitive?.contentOrNull
                         if (title != null && id != null) {
                             updateSession(activeSessionKey) { it.copy(currentThreadTitle = title) }
+                            StreamingSessionManager.streamMetadata.getOrPut(streamId) { StreamMetadata() }.threadTitle = title
                             _threadsState.update { state ->
                                 state.copy(
                                     threads = state.threads.mapValues { (_, threads) ->
@@ -833,6 +838,9 @@ class MainViewModel(
                                     metadata = parseMetadata(dto.metadata)
                                 )
                             }
+                            if (dto.md != null) {
+                                StreamingSessionManager.streamMetadata.getOrPut(streamId) { StreamMetadata() }.lastResponseText = dto.md
+                            }
                         }
 
                         updateSession(activeSessionKey) { it.copy(inProgressAssistantMessageId = newInProgressId) }
@@ -869,7 +877,6 @@ class MainViewModel(
                 }
             }
 
-            val streamId = "main:${activeSessionKey}:${System.currentTimeMillis()}"
             updateSession(activeSessionKey) { it.copy(activeStreamId = streamId) }
 
             var streamFiles: List<MultipartAssistantPromptFile>? = null
@@ -934,9 +941,9 @@ class MainViewModel(
             StreamingSessionManager.requestStream(context, streamRequest)
 
             try {
-                sharedFlow.collect { chunk ->
+                sharedFlow.first { chunk ->
                     onChunk(chunk)
-                    if (chunk.done) return@collect
+                    chunk.done
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -945,6 +952,7 @@ class MainViewModel(
             withContext(Dispatchers.Main) {
                 updateSession(activeSessionKey) { it.copy(inProgressAssistantMessageId = null, traceId = null) }
                 updateMessagesStateFromSession(activeSessionKey)
+                updateGeneratingThreadsState()
             }
         }
 

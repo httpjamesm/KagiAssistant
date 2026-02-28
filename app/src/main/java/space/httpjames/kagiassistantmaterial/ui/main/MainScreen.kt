@@ -44,6 +44,10 @@ import space.httpjames.kagiassistantmaterial.Screens
 import space.httpjames.kagiassistantmaterial.ui.chat.ChatArea
 import space.httpjames.kagiassistantmaterial.ui.message.MessageCenter
 import space.httpjames.kagiassistantmaterial.ui.shared.Header
+import android.app.NotificationManager
+import android.content.Context
+import space.httpjames.kagiassistantmaterial.streaming.PromptStreamingService
+import space.httpjames.kagiassistantmaterial.streaming.StreamingSessionManager
 import space.httpjames.kagiassistantmaterial.ui.viewmodel.AssistantViewModelFactory
 import space.httpjames.kagiassistantmaterial.ui.viewmodel.MainViewModel
 import space.httpjames.kagiassistantmaterial.utils.PreferenceKey
@@ -84,10 +88,14 @@ fun MainScreen(
         val observer = object : DefaultLifecycleObserver {
             override fun onResume(owner: LifecycleOwner) {
                 viewModel.isAppInForeground = true
+                StreamingSessionManager.isAppInForeground = true
+                val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+                nm?.cancel(PromptStreamingService.COMPLETION_NOTIFICATION_ID)
                 viewModel.restoreThread()
             }
             override fun onPause(owner: LifecycleOwner) {
                 viewModel.isAppInForeground = false
+                StreamingSessionManager.isAppInForeground = false
             }
         }
         lifecycle.addObserver(observer)

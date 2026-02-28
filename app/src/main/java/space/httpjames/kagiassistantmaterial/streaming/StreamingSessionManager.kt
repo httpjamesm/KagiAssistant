@@ -24,6 +24,11 @@ data class StreamRequest(
     val extraHeaders: Map<String, String> = emptyMap(),
 )
 
+data class StreamMetadata(
+    var threadTitle: String? = null,
+    var lastResponseText: String? = null,
+)
+
 object StreamingSessionManager {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -31,6 +36,9 @@ object StreamingSessionManager {
     private val streams = mutableMapOf<String, MutableSharedFlow<StreamChunk>>()
     private val jobs = mutableMapOf<String, Job>()
     val pendingRequests = mutableMapOf<String, StreamRequest>()
+    val streamMetadata = mutableMapOf<String, StreamMetadata>()
+
+    var isAppInForeground: Boolean = true
 
     private var repository: AssistantRepository? = null
 
@@ -107,6 +115,7 @@ object StreamingSessionManager {
         jobs.remove(streamId)
         streams.remove(streamId)
         pendingRequests.remove(streamId)
+        streamMetadata.remove(streamId)
     }
 
     fun hasActiveStreams(): Boolean = jobs.any { it.value.isActive }
@@ -117,5 +126,6 @@ object StreamingSessionManager {
         jobs.remove(streamId)
         streams.remove(streamId)
         pendingRequests.remove(streamId)
+        streamMetadata.remove(streamId)
     }
 }
