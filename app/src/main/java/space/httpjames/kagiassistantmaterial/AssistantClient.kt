@@ -315,6 +315,23 @@ class AssistantClient(
         }
     }
 
+    suspend fun stopGeneration(traceId: String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder()
+                .url("https://kagi.com/assistant/stop/$traceId")
+                .headers(baseHeaders)
+                .get()
+                .build()
+
+            okHttpClient.newCall(request).execute().use { response ->
+                if (response.isSuccessful) Result.success(Unit)
+                else Result.failure(IOException("HTTP error ${response.code}: ${response.message}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun deleteChat(threadId: String): Result<Unit> {
         return try {
             fetchStream(

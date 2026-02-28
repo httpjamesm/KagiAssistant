@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
@@ -242,15 +243,24 @@ fun MessageCenter(
                             ?: "Select a model",
                     )
                 }
+                val isGenerating = messagesState.inProgressAssistantMessageId != null
                 FilledIconButton(
                     onClick = {
-                        viewModel.sendMessage(context)
+                        if (isGenerating) {
+                            viewModel.stopGeneration()
+                        } else {
+                            viewModel.sendMessage(context)
+                        }
                         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                     },
-                    enabled = messageCenterState.text.isNotBlank() || messageCenterState.attachmentUris.isNotEmpty(),
+                    enabled = isGenerating || messageCenterState.text.isNotBlank() || messageCenterState.attachmentUris.isNotEmpty(),
                     modifier = Modifier.size(56.dp),
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send message")
+                    if (isGenerating) {
+                        Icon(Icons.Filled.Stop, contentDescription = "Stop generation")
+                    } else {
+                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send message")
+                    }
                 }
             }
         }

@@ -87,7 +87,8 @@ private data class ThreadSession(
     val callState: DataFetchingState = DataFetchingState.OK,
     val isTemporaryChat: Boolean = false,
     val inProgressAssistantMessageId: String? = null,
-    val streamingJob: Job? = null
+    val streamingJob: Job? = null,
+    val traceId: String? = null
 )
 
 /**
@@ -614,6 +615,23 @@ class MainViewModel(
         _messageCenterState.update { it.copy(showAttachmentBottomSheet = true) }
     }
 
+    fun stopGeneration() {
+        val sessionKey = currentSessionKey ?: return
+        val session = threadSessions[sessionKey] ?: return
+        val traceId = session.traceId ?: return
+
+        session.streamingJob?.cancel()
+        updateSession(sessionKey) {
+            it.copy(inProgressAssistantMessageId = null, traceId = null, streamingJob = null)
+        }
+
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                repository.stopGeneration(traceId)
+            } catch (_: Exception) { }
+        }
+    }
+
     fun sendMessage(context: Context) {
         val sessionKey = currentSessionKey ?: run {
             val tempId = "temp:${UUID.randomUUID()}"
@@ -810,6 +828,18 @@ class MainViewModel(
                         maybeUpdateState(force = true)
                     }
 
+                    "hi" -> {
+                        try {
+                            val json = Json.parseToJsonElement(chunk.data)
+                            val trace = json.jsonObject["trace"]?.jsonPrimitive?.contentOrNull
+                            if (trace != null) {
+                                withContext(Dispatchers.Main) {
+                                    updateSession(activeSessionKey) { it.copy(traceId = trace) }
+                                }
+                            }
+                        } catch (_: Exception) { }
+                    }
+
                     "tokens.json" -> {
                         val json = Json.parseToJsonElement(chunk.data)
                         val obj = json.jsonObject
@@ -896,7 +926,7 @@ class MainViewModel(
             }
 
             withContext(Dispatchers.Main) {
-                updateSession(activeSessionKey) { it.copy(inProgressAssistantMessageId = null) }
+                updateSession(activeSessionKey) { it.copy(inProgressAssistantMessageId = null, traceId = null) }
                 updateMessagesStateFromSession(activeSessionKey)
             }
         }
