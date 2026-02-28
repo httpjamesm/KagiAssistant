@@ -30,6 +30,7 @@ interface AssistantRepository {
     // Thread operations
     suspend fun getThreads(cursor: JsonElement? = null): ThreadListResponse
     suspend fun searchThreads(query: String): List<ThreadSearchResult>
+    suspend fun stopGeneration(traceId: String): Result<Unit>
     suspend fun deleteChat(threadId: String): Result<Unit>
     suspend fun fetchThreadPage(threadId: String): ThreadPageData
 
@@ -104,6 +105,10 @@ class AssistantRepositoryImpl(
         withContext(Dispatchers.IO) {
             assistantClient.searchThreads(query)
         }
+
+    override suspend fun stopGeneration(traceId: String): Result<Unit> = withContext(Dispatchers.IO) {
+        assistantClient.stopGeneration(traceId)
+    }
 
     override suspend fun deleteChat(threadId: String): Result<Unit> = withContext(Dispatchers.IO) {
         assistantClient.deleteChat(threadId)
