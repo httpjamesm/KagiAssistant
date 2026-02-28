@@ -2,7 +2,9 @@ package space.httpjames.kagiassistantmaterial
 
 import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.view.View
 import androidx.activity.ComponentActivity
@@ -66,6 +68,14 @@ class MainActivity : ComponentActivity() {
                 prefs.edit().putBoolean(PreferenceKey.MIC_GRANTED.key, granted).apply()
             }
         launcher.launch(Manifest.permission.RECORD_AUDIO)
+
+        val notifLauncher =
+            registerForActivityResult(ActivityResultContracts.RequestPermission()) { _ -> }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
 
         setContent {
             KagiAssistantTheme {

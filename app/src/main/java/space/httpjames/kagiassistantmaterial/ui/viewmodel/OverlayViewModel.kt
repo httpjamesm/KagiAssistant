@@ -32,6 +32,8 @@ import space.httpjames.kagiassistantmaterial.KagiPromptRequestThreads
 import space.httpjames.kagiassistantmaterial.MessageDto
 import space.httpjames.kagiassistantmaterial.MultipartAssistantPromptFile
 import space.httpjames.kagiassistantmaterial.StreamChunk
+import space.httpjames.kagiassistantmaterial.streaming.StreamRequest
+import space.httpjames.kagiassistantmaterial.streaming.StreamingSessionManager
 import space.httpjames.kagiassistantmaterial.ui.message.AssistantProfile
 import space.httpjames.kagiassistantmaterial.ui.message.to84x84ThumbFile
 import space.httpjames.kagiassistantmaterial.ui.message.toObject
@@ -81,6 +83,8 @@ class OverlayViewModel(
         )
     )
     val uiState: StateFlow<OverlayUiState> = _uiState.asStateFlow()
+
+    private var activeStreamId: String? = null
 
     private val ttsManager = TtsManager(
         context = context,
@@ -311,6 +315,11 @@ class OverlayViewModel(
                     )
                 }
 
+                val streamId = "overlay:${System.currentTimeMillis()}"
+                activeStreamId = streamId
+
+                var streamFiles: List<MultipartAssistantPromptFile>? = null
+
                 if (screenshot != null) {
                     val tempFile = File.createTempFile(
                         "temp",
@@ -324,20 +333,24 @@ class OverlayViewModel(
 
                     val thumbnail = tempFile.to84x84ThumbFile()
 
-                    val promptFile = MultipartAssistantPromptFile(tempFile, thumbnail, "image/webp")
+                    streamFiles = listOf(MultipartAssistantPromptFile(tempFile, thumbnail, "image/webp"))
+                }
 
-                    assistantClient.sendMultipartRequest(
-                        url = "https://kagi.com/assistant/prompt",
-                        requestBody = requestBody,
-                        files = listOf(promptFile)
-                    ).collect { chunk -> onChunk(chunk) }
-                } else {
-                    assistantClient.fetchStream(
-                        url = "https://kagi.com/assistant/prompt",
-                        method = "POST",
-                        body = jsonString,
-                        extraHeaders = mapOf("Content-Type" to "application/json")
-                    ).collect { chunk -> onChunk(chunk) }
+                val streamRequest = StreamRequest(
+                    streamId = streamId,
+                    url = "https://kagi.com/assistant/prompt",
+                    jsonBody = if (streamFiles == null) jsonString else null,
+                    requestBody = if (streamFiles != null) requestBody else null,
+                    files = streamFiles,
+                    extraHeaders = if (streamFiles == null) mapOf("Content-Type" to "application/json") else emptyMap()
+                )
+
+                val sharedFlow = StreamingSessionManager.getStream(streamId)
+                StreamingSessionManager.requestStream(context, streamRequest)
+
+                sharedFlow.collect { chunk ->
+                    onChunk(chunk)
+                    if (chunk.done) return@collect
                 }
 
                 _uiState.update {

@@ -37,6 +37,8 @@ import space.httpjames.kagiassistantmaterial.MultipartAssistantPromptFile
 import space.httpjames.kagiassistantmaterial.StreamChunk
 import space.httpjames.kagiassistantmaterial.ThreadSearchResult
 import space.httpjames.kagiassistantmaterial.data.repository.AssistantRepository
+import space.httpjames.kagiassistantmaterial.streaming.StreamRequest
+import space.httpjames.kagiassistantmaterial.streaming.StreamingSessionManager
 import space.httpjames.kagiassistantmaterial.parseMetadata
 import space.httpjames.kagiassistantmaterial.parseThreadListHtml
 import space.httpjames.kagiassistantmaterial.parseThreadListJsonWrapper
@@ -88,7 +90,8 @@ private data class ThreadSession(
     val isTemporaryChat: Boolean = false,
     val inProgressAssistantMessageId: String? = null,
     val streamingJob: Job? = null,
-    val traceId: String? = null
+    val traceId: String? = null,
+    val activeStreamId: String? = null
 )
 
 /**
@@ -262,6 +265,7 @@ class MainViewModel(
             if (result.isSuccess) {
                 threadSessions.entries.firstOrNull { it.value.threadId == threadId }?.let { entry ->
                     entry.value.streamingJob?.cancel()
+                    StreamingSessionManager.cancelStream(entry.value.activeStreamId)
                     threadSessions.remove(entry.key)
                     updateGeneratingThreadsState()
                 }
@@ -862,6 +866,11 @@ class MainViewModel(
                 }
             }
 
+            val streamId = "main:${activeSessionKey}:${System.currentTimeMillis()}"
+            updateSession(activeSessionKey) { it.copy(activeStreamId = streamId) }
+
+            var streamFiles: List<MultipartAssistantPromptFile>? = null
+
             if (_messageCenterState.value.attachmentUris.isNotEmpty()) {
                 val files = withContext(Dispatchers.IO) {
                     _messageCenterState.value.attachmentUris.mapNotNull { uriStr ->
@@ -906,27 +915,28 @@ class MainViewModel(
                 }
 
                 _messageCenterState.update { it.copy(attachmentUris = emptyList()) }
+                streamFiles = files
+            }
 
-                try {
-                    repository.sendMultipartRequest(
-                        url = url,
-                        requestBody = requestBody,
-                        files = files
-                    ).collect { chunk -> onChunk(chunk) }
-                } catch (e: Exception) {
-                    e.printStackTrace()
+            val streamRequest = StreamRequest(
+                streamId = streamId,
+                url = url,
+                jsonBody = if (streamFiles == null) jsonString else null,
+                requestBody = if (streamFiles != null) requestBody else null,
+                files = streamFiles,
+                extraHeaders = if (streamFiles == null) mapOf("Content-Type" to "application/json") else emptyMap()
+            )
+
+            val sharedFlow = StreamingSessionManager.getStream(streamId)
+            StreamingSessionManager.requestStream(context, streamRequest)
+
+            try {
+                sharedFlow.collect { chunk ->
+                    onChunk(chunk)
+                    if (chunk.done) return@collect
                 }
-            } else {
-                try {
-                    repository.fetchStream(
-                        url = url,
-                        method = "POST",
-                        body = jsonString,
-                        extraHeaders = mapOf("Content-Type" to "application/json")
-                    ).collect { chunk -> onChunk(chunk) }
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
 
             withContext(Dispatchers.Main) {
