@@ -355,6 +355,21 @@ class AssistantClient(
         }
     }
 
+    suspend fun getAutoSave(): Boolean {
+        val request = Request.Builder()
+            .url("https://kagi.com/assistant")
+            .headers(baseHeaders)
+            .get()
+            .build()
+
+        return okHttpClient.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) return true
+            val body = response.body?.string() ?: return true
+            val match = Regex("""window\.AUTO_SAVE\s*=\s*(true|false)\s*;""").find(body)
+            match?.groupValues?.get(1)?.toBooleanStrictOrNull() ?: true
+        }
+    }
+
     suspend fun checkAuthentication(): Boolean {
         val request = Request.Builder()
             .url("https://kagi.com/settings/assistant")

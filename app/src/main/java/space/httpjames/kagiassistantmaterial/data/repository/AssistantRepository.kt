@@ -55,6 +55,8 @@ interface AssistantRepository {
     ): Flow<StreamChunk>
 
     fun getSessionToken(): String
+
+    suspend fun getAutoSave(): Boolean
 }
 
 /**
@@ -137,5 +139,9 @@ class AssistantRepositoryImpl(
 
     override fun getSessionToken(): String {
         return assistantClient.getSessionToken()
+    }
+
+    override suspend fun getAutoSave(): Boolean = withContext(Dispatchers.IO) {
+        assistantClient.getAutoSave()
     }
 }
