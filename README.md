@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="app/src/main/ic_launcher-playstore.png" width="128px" />
+
 # KagiAssistant
 
 ![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)
