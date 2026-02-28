@@ -14,6 +14,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -37,6 +38,9 @@ import space.httpjames.kagiassistantmaterial.MultipartAssistantPromptFile
 import space.httpjames.kagiassistantmaterial.StreamChunk
 import space.httpjames.kagiassistantmaterial.ThreadSearchResult
 import space.httpjames.kagiassistantmaterial.data.repository.AssistantRepository
+import space.httpjames.kagiassistantmaterial.streaming.StreamMetadata
+import space.httpjames.kagiassistantmaterial.streaming.StreamRequest
+import space.httpjames.kagiassistantmaterial.streaming.StreamingSessionManager
 import space.httpjames.kagiassistantmaterial.parseMetadata
 import space.httpjames.kagiassistantmaterial.parseThreadListHtml
 import space.httpjames.kagiassistantmaterial.parseThreadListJsonWrapper
@@ -88,7 +92,8 @@ private data class ThreadSession(
     val isTemporaryChat: Boolean = false,
     val inProgressAssistantMessageId: String? = null,
     val streamingJob: Job? = null,
-    val traceId: String? = null
+    val traceId: String? = null,
+    val activeStreamId: String? = null
 )
 
 /**
@@ -121,6 +126,8 @@ class MainViewModel(
     fun setOnTokenReceived(callback: () -> Unit) {
         _onTokenReceived = callback
     }
+
+    var isAppInForeground: Boolean = true
 
     // Threads state
     private val _threadsState = MutableStateFlow(ThreadsUiState())
@@ -262,6 +269,7 @@ class MainViewModel(
             if (result.isSuccess) {
                 threadSessions.entries.firstOrNull { it.value.threadId == threadId }?.let { entry ->
                     entry.value.streamingJob?.cancel()
+                    StreamingSessionManager.cancelStream(entry.value.activeStreamId)
                     threadSessions.remove(entry.key)
                     updateGeneratingThreadsState()
                 }
@@ -484,6 +492,7 @@ class MainViewModel(
     }
 
     private fun shouldPlayTokenHaptic(sessionKey: String): Boolean {
+        if (!isAppInForeground) return false
         val session = threadSessions[sessionKey] ?: return false
         return sessionKey == activeSessionKey && session.inProgressAssistantMessageId != null
     }
@@ -750,6 +759,8 @@ class MainViewModel(
                 }
             }
 
+            val streamId = "main:${activeSessionKey}:${System.currentTimeMillis()}"
+
             suspend fun onChunk(chunk: StreamChunk) {
                 when (chunk.header) {
                     "thread.json" -> {
@@ -764,6 +775,7 @@ class MainViewModel(
                         val title = json.jsonObject["title"]?.jsonPrimitive?.contentOrNull
                         if (title != null && id != null) {
                             updateSession(activeSessionKey) { it.copy(currentThreadTitle = title) }
+                            StreamingSessionManager.streamMetadata.getOrPut(streamId) { StreamMetadata() }.threadTitle = title
                             _threadsState.update { state ->
                                 state.copy(
                                     threads = state.threads.mapValues { (_, threads) ->
@@ -826,6 +838,9 @@ class MainViewModel(
                                     metadata = parseMetadata(dto.metadata)
                                 )
                             }
+                            if (dto.md != null) {
+                                StreamingSessionManager.streamMetadata.getOrPut(streamId) { StreamMetadata() }.lastResponseText = dto.md
+                            }
                         }
 
                         updateSession(activeSessionKey) { it.copy(inProgressAssistantMessageId = newInProgressId) }
@@ -861,6 +876,10 @@ class MainViewModel(
                     updateMessageById(currentInProgressId) { it.copy(finishedGenerating = true) }
                 }
             }
+
+            updateSession(activeSessionKey) { it.copy(activeStreamId = streamId) }
+
+            var streamFiles: List<MultipartAssistantPromptFile>? = null
 
             if (_messageCenterState.value.attachmentUris.isNotEmpty()) {
                 val files = withContext(Dispatchers.IO) {
@@ -906,32 +925,34 @@ class MainViewModel(
                 }
 
                 _messageCenterState.update { it.copy(attachmentUris = emptyList()) }
+                streamFiles = files
+            }
 
-                try {
-                    repository.sendMultipartRequest(
-                        url = url,
-                        requestBody = requestBody,
-                        files = files
-                    ).collect { chunk -> onChunk(chunk) }
-                } catch (e: Exception) {
-                    e.printStackTrace()
+            val streamRequest = StreamRequest(
+                streamId = streamId,
+                url = url,
+                jsonBody = if (streamFiles == null) jsonString else null,
+                requestBody = if (streamFiles != null) requestBody else null,
+                files = streamFiles,
+                extraHeaders = if (streamFiles == null) mapOf("Content-Type" to "application/json") else emptyMap()
+            )
+
+            val sharedFlow = StreamingSessionManager.getStream(streamId)
+            StreamingSessionManager.requestStream(context, streamRequest)
+
+            try {
+                sharedFlow.first { chunk ->
+                    onChunk(chunk)
+                    chunk.done
                 }
-            } else {
-                try {
-                    repository.fetchStream(
-                        url = url,
-                        method = "POST",
-                        body = jsonString,
-                        extraHeaders = mapOf("Content-Type" to "application/json")
-                    ).collect { chunk -> onChunk(chunk) }
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
 
             withContext(Dispatchers.Main) {
                 updateSession(activeSessionKey) { it.copy(inProgressAssistantMessageId = null, traceId = null) }
                 updateMessagesStateFromSession(activeSessionKey)
+                updateGeneratingThreadsState()
             }
         }
 

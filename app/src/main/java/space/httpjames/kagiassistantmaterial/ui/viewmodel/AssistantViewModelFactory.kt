@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModelProvider
 import space.httpjames.kagiassistantmaterial.AssistantClient
 import space.httpjames.kagiassistantmaterial.data.repository.AssistantRepository
 import space.httpjames.kagiassistantmaterial.data.repository.AssistantRepositoryImpl
+import space.httpjames.kagiassistantmaterial.streaming.StreamingSessionManager
 
 /**
  * Factory for creating ViewModels with dependencies.
@@ -19,7 +20,9 @@ class AssistantViewModelFactory(
 ) : ViewModelProvider.Factory {
 
     private val repository: AssistantRepository by lazy {
-        AssistantRepositoryImpl(assistantClient)
+        AssistantRepositoryImpl(assistantClient).also {
+            StreamingSessionManager.init(it)
+        }
     }
 
     @Suppress("UNCHECKED_CAST")
