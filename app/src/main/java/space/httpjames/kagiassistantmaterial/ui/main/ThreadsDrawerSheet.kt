@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -54,7 +53,6 @@ import org.jsoup.Jsoup
 import space.httpjames.kagiassistantmaterial.AssistantThread
 import space.httpjames.kagiassistantmaterial.ThreadSearchResult
 import space.httpjames.kagiassistantmaterial.utils.DataFetchingState
-
 import java.text.NumberFormat
 
 @OptIn(ExperimentalMaterial3Api::class, FlowPreview::class)
@@ -303,8 +301,6 @@ private fun ThreadList(
                     horizontalArrangement = Arrangement.Center
                 ) {
                     CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Loading more...", style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
