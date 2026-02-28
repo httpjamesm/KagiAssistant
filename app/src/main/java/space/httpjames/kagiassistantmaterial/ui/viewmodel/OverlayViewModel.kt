@@ -219,6 +219,12 @@ class OverlayViewModel(
                 return@launch
             }
 
+            val autoSave = try {
+                assistantClient.getAutoSave()
+            } catch (e: Exception) {
+                true
+            }
+
             val requestBody = KagiPromptRequest(
                 focus,
                 KagiPromptRequestProfile(
@@ -229,7 +235,7 @@ class OverlayViewModel(
                     false,
                 ),
                 listOf(
-                    KagiPromptRequestThreads(listOf(), true, false)
+                    KagiPromptRequestThreads(listOf(), autoSave, false)
                 )
             )
 

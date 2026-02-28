@@ -665,13 +665,17 @@ class MainViewModel(
 
             onMessageCenterTextChanged("")
 
+            var autoSave = true
             try {
                 if (_messageCenterState.value.profiles.isEmpty()) {
                     _messageCenterState.update { it.copy(profiles = repository.getProfiles()) }
                 }
+                autoSave = repository.getAutoSave()
             } catch (e: Exception) {
                 e.printStackTrace()
             }
+
+            val saved = if (session.isTemporaryChat) false else autoSave
 
             val requestBody = KagiPromptRequest(
                 focus,
@@ -685,7 +689,7 @@ class MainViewModel(
                 if (getEditingMessageId().isNullOrBlank()) null else listOf(
                     KagiPromptRequestThreads(
                         listOf(),
-                        saved = !session.isTemporaryChat,
+                        saved = saved,
                         shared = false
                     )
                 )
