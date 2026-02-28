@@ -83,7 +83,11 @@ fun MainScreen(
     DisposableEffect(lifecycle) {
         val observer = object : DefaultLifecycleObserver {
             override fun onResume(owner: LifecycleOwner) {
+                viewModel.isAppInForeground = true
                 viewModel.restoreThread()
+            }
+            override fun onPause(owner: LifecycleOwner) {
+                viewModel.isAppInForeground = false
             }
         }
         lifecycle.addObserver(observer)

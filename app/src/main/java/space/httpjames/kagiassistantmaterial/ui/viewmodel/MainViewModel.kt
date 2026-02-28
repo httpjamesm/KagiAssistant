@@ -125,6 +125,8 @@ class MainViewModel(
         _onTokenReceived = callback
     }
 
+    var isAppInForeground: Boolean = true
+
     // Threads state
     private val _threadsState = MutableStateFlow(ThreadsUiState())
     val threadsState: StateFlow<ThreadsUiState> = _threadsState.asStateFlow()
@@ -488,6 +490,7 @@ class MainViewModel(
     }
 
     private fun shouldPlayTokenHaptic(sessionKey: String): Boolean {
+        if (!isAppInForeground) return false
         val session = threadSessions[sessionKey] ?: return false
         return sessionKey == activeSessionKey && session.inProgressAssistantMessageId != null
     }
