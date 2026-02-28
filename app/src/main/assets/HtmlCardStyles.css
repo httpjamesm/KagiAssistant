@@ -288,10 +288,9 @@ sup {
     font-weight: 600;
     line-height: 1;
     margin-left: 0.25rem;
-    vertical-align: super;
+    vertical-align: top;
     text-decoration: none;
     transition: all 0.2s ease;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 sup a {
