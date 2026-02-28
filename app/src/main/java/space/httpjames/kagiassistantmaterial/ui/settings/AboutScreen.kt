@@ -1,6 +1,5 @@
 package space.httpjames.kagiassistantmaterial.ui.settings
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -36,11 +35,7 @@ import androidx.navigation.NavController
 fun AboutScreen(navController: NavController) {
     val uriHandler = LocalUriHandler.current
     val scrollState = rememberScrollState()
-
-    BackHandler(enabled = true) {
-        navController.popBackStack()
-    }
-
+    
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,

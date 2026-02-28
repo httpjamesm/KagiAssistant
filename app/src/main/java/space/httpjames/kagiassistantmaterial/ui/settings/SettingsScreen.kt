@@ -5,7 +5,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.provider.Settings
 import android.service.voice.VoiceInteractionService
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -113,11 +112,7 @@ fun SettingsScreen(
         context.packageName,
         0
     )
-
-    BackHandler(enabled = true) {
-        navController.popBackStack()
-    }
-
+    
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
