@@ -6,6 +6,7 @@ enum class PreferenceKey(val key: String) {
     ASSISTANT_MODEL("assistant_model"),
     USE_MINI_OVERLAY("use_mini_overlay"),
     AUTO_SPEAK_REPLIES("auto_speak_replies"),
+    AUTO_TOGGLE_INTERNET("auto_toggle_internet"),
     OPEN_KEYBOARD_AUTOMATICALLY("open_keyboard_automatically"),
     STICKY_SCROLL("sticky_scroll"),
     SAVED_TEXT("savedText"),
@@ -24,6 +25,7 @@ enum class PreferenceKey(val key: String) {
         const val DEFAULT_RECENTLY_USED_PROFILES = "[]"
         const val DEFAULT_USE_MINI_OVERLAY = true
         const val DEFAULT_AUTO_SPEAK_REPLIES = true
+        const val DEFAULT_AUTO_TOGGLE_INTERNET = true
         const val DEFAULT_OPEN_KEYBOARD_AUTOMATICALLY = false
         const val DEFAULT_STICKY_SCROLL = true
     }

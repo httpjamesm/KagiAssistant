@@ -22,6 +22,7 @@ data class SettingsUiState(
     val emailAddress: String = "",
     val emailAddressCallState: DataFetchingState = DataFetchingState.FETCHING,
     val autoSpeakReplies: Boolean = PreferenceKey.DEFAULT_AUTO_SPEAK_REPLIES,
+    val autoToggleInternet: Boolean = PreferenceKey.DEFAULT_AUTO_TOGGLE_INTERNET,
     val openKeyboardAutomatically: Boolean = PreferenceKey.DEFAULT_OPEN_KEYBOARD_AUTOMATICALLY,
     val profiles: List<AssistantProfile> = emptyList(),
     val showAssistantModelChooserModal: Boolean = false,
@@ -49,6 +50,10 @@ class SettingsViewModel(
             autoSpeakReplies = prefs.getBoolean(
                 PreferenceKey.AUTO_SPEAK_REPLIES.key,
                 PreferenceKey.DEFAULT_AUTO_SPEAK_REPLIES
+            ),
+            autoToggleInternet = prefs.getBoolean(
+                PreferenceKey.AUTO_TOGGLE_INTERNET.key,
+                PreferenceKey.DEFAULT_AUTO_TOGGLE_INTERNET
             ),
             openKeyboardAutomatically = prefs.getBoolean(
                 PreferenceKey.OPEN_KEYBOARD_AUTOMATICALLY.key,
@@ -140,11 +145,18 @@ class SettingsViewModel(
         prefs.edit { putBoolean(PreferenceKey.AUTO_SPEAK_REPLIES.key, newValue) }
     }
 
+    fun toggleAutoToggleInternet() {
+        val newValue = !_uiState.value.autoToggleInternet
+        _uiState.update { it.copy(autoToggleInternet = newValue) }
+        prefs.edit { putBoolean(PreferenceKey.AUTO_TOGGLE_INTERNET.key, newValue) }
+    }
+
     fun clearAllPrefs() {
         prefs.edit { clear() }
         _uiState.update {
             SettingsUiState(
                 autoSpeakReplies = PreferenceKey.DEFAULT_AUTO_SPEAK_REPLIES,
+                autoToggleInternet = PreferenceKey.DEFAULT_AUTO_TOGGLE_INTERNET,
                 openKeyboardAutomatically = PreferenceKey.DEFAULT_OPEN_KEYBOARD_AUTOMATICALLY,
                 selectedAssistantModel = PreferenceKey.DEFAULT_ASSISTANT_MODEL,
                 useMiniOverlay = PreferenceKey.DEFAULT_USE_MINI_OVERLAY,

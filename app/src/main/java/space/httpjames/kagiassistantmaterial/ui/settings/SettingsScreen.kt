@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Assistant
 import androidx.compose.material.icons.filled.HomeMini
 import androidx.compose.material.icons.filled.Keyboard
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material.icons.filled.PhoneInTalk
@@ -44,8 +45,6 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.ui.res.stringResource
-import space.httpjames.kagiassistantmaterial.R
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,6 +55,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -63,6 +63,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import kotlinx.coroutines.launch
 import space.httpjames.kagiassistantmaterial.AssistantClient
+import space.httpjames.kagiassistantmaterial.R
 import space.httpjames.kagiassistantmaterial.Screens
 import space.httpjames.kagiassistantmaterial.ui.viewmodel.AssistantViewModelFactory
 import space.httpjames.kagiassistantmaterial.ui.viewmodel.SettingsViewModel
@@ -309,7 +310,7 @@ fun SettingsScreen(
                     icon = Icons.Default.Keyboard,
                     title = "Auto keyboard",
                     subtitle = "Always focus the message bar",
-                    pos = SettingsItemPosition.BOTTOM,
+                    pos = SettingsItemPosition.MIDDLE,
                     iconBackgroundColor = MaterialTheme.colorScheme.primaryContainer,
                     iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
                     rightSide = {
@@ -318,6 +319,20 @@ fun SettingsScreen(
                         })
                     }
                 )
+                SettingsItem(
+                    icon = Icons.Default.Language,
+                    title = "Auto Internet",
+                    subtitle = "Toggle Internet based on model",
+                    pos = SettingsItemPosition.BOTTOM,
+                    iconBackgroundColor = MaterialTheme.colorScheme.primaryContainer,
+                    iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    rightSide = {
+                        Switch(checked = uiState.autoToggleInternet, onCheckedChange = {
+                            viewModel.toggleAutoToggleInternet()
+                        })
+                    }
+                )
+
             }
 
             Column(
