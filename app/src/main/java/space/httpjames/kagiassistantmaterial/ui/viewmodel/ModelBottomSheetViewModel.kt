@@ -21,6 +21,7 @@ import android.content.SharedPreferences
  */
 data class ModelBottomSheetUiState(
     val profiles: List<AssistantProfile> = emptyList(),
+    val profileKeysWithReasoningCapability: Set<String> = emptySet(),
     val profilesCallState: DataFetchingState = DataFetchingState.FETCHING,
     val searchQuery: String = "",
     val selectedProfileId: String? = null,
@@ -97,6 +98,18 @@ class ModelBottomSheetViewModel(
                 it.name.nameWithoutParentheticals() == reasoningProfile.name.nameWithoutParentheticals()
         }
 
+    /**
+     * True if this profile should show the reasoning (lightbulb) indicator: it has a reasoning
+     * counterpart, or it is a reasoning-only model.
+     */
+    private fun hasReasoningCapability(profile: AssistantProfile, all: List<AssistantProfile>): Boolean =
+        profile.name.contains("(reasoning)") ||
+            all.any {
+                it.key != profile.key &&
+                    it.name.contains("(reasoning)") &&
+                    it.name.nameWithoutParentheticals() == profile.name.nameWithoutParentheticals()
+            }
+
     fun fetchProfiles() {
         viewModelScope.launch {
             try {
@@ -105,8 +118,13 @@ class ModelBottomSheetViewModel(
                 val profiles = allProfiles.filter { p ->
                     !p.name.contains("(reasoning)") || !hasBaseVariant(p, allProfiles)
                 }
+                val profileKeysWithReasoningCapability = allProfiles
+                    .filter { hasReasoningCapability(it, allProfiles) }
+                    .map { it.key }
+                    .toSet()
                 _uiState.update { it.copy(
                     profiles = profiles,
+                    profileKeysWithReasoningCapability = profileKeysWithReasoningCapability,
                     profilesCallState = DataFetchingState.OK
                 ) }
             } catch (e: Exception) {

@@ -12,10 +12,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -36,6 +38,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import space.httpjames.kagiassistantmaterial.AssistantClient
 import space.httpjames.kagiassistantmaterial.utils.DataFetchingState
 import space.httpjames.kagiassistantmaterial.ui.viewmodel.AssistantViewModelFactory
+import space.httpjames.kagiassistantmaterial.ui.message.nameWithoutParentheticals
 import space.httpjames.kagiassistantmaterial.ui.viewmodel.ModelBottomSheetViewModel
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -122,11 +125,24 @@ fun ModelBottomSheet(
                                     ),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    text = profile.name.replace("(preview)", "").trim(),
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    modifier = Modifier.weight(1f)
-                                )
+                                Row(
+                                    modifier = Modifier.weight(1f),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(
+                                        text = profile.name.nameWithoutParentheticals(),
+                                        style = MaterialTheme.typography.bodyLarge
+                                    )
+                                    if (uiState.profileKeysWithReasoningCapability.contains(profile.key)) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Lightbulb,
+                                            contentDescription = "Reasoning capable",
+                                            modifier = Modifier.size(18.dp),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
                                 if (isSelected) {
                                     Icon(
                                         imageVector = Icons.Filled.Check,
@@ -180,11 +196,24 @@ fun ModelBottomSheet(
                                     ),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    text = profile.name.replace("(preview)", "").trim(),
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    modifier = Modifier.weight(1f)
-                                )
+                                Row(
+                                    modifier = Modifier.weight(1f),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(
+                                        text = profile.name.nameWithoutParentheticals(),
+                                        style = MaterialTheme.typography.bodyLarge
+                                    )
+                                    if (uiState.profileKeysWithReasoningCapability.contains(profile.key)) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Lightbulb,
+                                            contentDescription = "Reasoning capable",
+                                            modifier = Modifier.size(18.dp),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
                                 if (isSelected) {
                                     Icon(
                                         imageVector = Icons.Filled.Check,
