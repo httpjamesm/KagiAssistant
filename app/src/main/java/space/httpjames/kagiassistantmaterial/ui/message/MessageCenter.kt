@@ -9,10 +9,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -20,6 +22,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilledIconButton
@@ -40,6 +44,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
@@ -200,18 +205,22 @@ fun MessageCenter(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 16.dp, end = 8.dp),
+                .padding(bottom = 16.dp, end = 8.dp, start = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 IconButton(onClick = {
                     haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     viewModel.showAttachmentBottomSheet()
-                }, modifier = Modifier.size(64.dp)) {
+                }, modifier = Modifier.size(40.dp)) {
                     Icon(Icons.Filled.Add, contentDescription = "Add attachment")
                 }
 
+                val thinkForcedOn = viewModel.isReasoningOnlyModel(viewModel.getProfile())
                 val backgroundColor by animateColorAsState(
                     if (messageCenterState.isSearchEnabled) MaterialTheme.colorScheme.primary else Color.Transparent,
                     label = "Internet button background"
@@ -240,8 +249,47 @@ fun MessageCenter(
                         contentDescription = "Toggle internet access",
                         tint = contentColor
                     )
-                    if (messageCenterState.isSearchEnabled) {
+                    if (messageCenterState.isSearchEnabled && !(messageCenterState.thinkEnabled || thinkForcedOn)) {
                         Text("Internet", color = contentColor)
+                    }
+                }
+
+                if (viewModel.hasReasoningCounterpart(viewModel.getProfile())) {
+                    val thinkOn = messageCenterState.thinkEnabled || thinkForcedOn
+                    val thinkBackgroundColor by animateColorAsState(
+                        if (thinkOn) MaterialTheme.colorScheme.primary else Color.Transparent,
+                        label = "Think button background"
+                    )
+                    val thinkContentColor by animateColorAsState(
+                        if (thinkOn) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                        label = "Think button content"
+                    )
+                    Row(
+                        modifier = Modifier
+                            .height(40.dp)
+                            .animateContentSize()
+                            .clip(CircleShape)
+                            .alpha(if (!thinkForcedOn) 1f else 0.8f)
+                            .background(thinkBackgroundColor)
+                            .then(
+                                if (thinkForcedOn) Modifier
+                                else Modifier.clickable {
+                                    viewModel.toggleThink()
+                                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                }
+                            )
+                            .padding(horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            Icons.Filled.Lightbulb,
+                            contentDescription = if (thinkForcedOn) "Think (always on for this model)" else "Toggle Think",
+                            tint = thinkContentColor
+                        )
+                        if (thinkOn) {
+                            Text("Think", color = thinkContentColor)
+                        }
                     }
                 }
             }
@@ -255,12 +303,20 @@ fun MessageCenter(
                         haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     },
                     contentPadding = PaddingValues(horizontal = 16.dp),
-                    modifier = Modifier.weight(1f, fill = false)
+                    modifier = Modifier.weight(1f, fill = false),
                 ) {
-                    Text(
-                        text = viewModel.getProfile()?.name?.replace("(preview)", "")?.trim()
-                            ?: "Select a model",
-                    )
+                    val rawName = viewModel.getProfile()?.name
+                    val displayName = rawName?.nameWithoutParentheticals()
+                        ?: "Select a model"
+                    Text(text = displayName.ifBlank { "Select a model" })
+                    if (rawName?.contains("(Experimental)") ?: false) {
+                        Spacer(modifier = Modifier.width(2.dp))
+                        Icon(
+                            Icons.Filled.Science,
+                            contentDescription = "Experimental",
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
                 val isGenerating = messagesState.inProgressAssistantMessageId != null
                 FilledIconButton(

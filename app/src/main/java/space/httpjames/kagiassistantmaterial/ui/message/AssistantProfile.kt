@@ -12,11 +12,18 @@ data class AssistantProfile(
     @SerialName("model") val model: String,
     @SerialName("model_provider") val family: String,
     @SerialName("name") val name: String,
+    @SerialName("model_name") val modelName: String, // NOT THE SAME AS NAME! this is the server side base layer model name
     @SerialName("model_input_limit") val maxInputChars: Int = 40_000,
     @SerialName("internet_access") val internetAccess: Boolean = false,
 ) {
     val key: String get() = id ?: model
 }
+
+/**
+ * Strips all parenthesized text (e.g. "Model (preview) (reasoning)" -> "Model").
+ */
+fun String.nameWithoutParentheticals(): String =
+    replace(Regex("""\s*\([^)]*\)"""), "").trim()
 
 inline fun <reified T> JsonElement.toObject(): T =
     JsonLenient.decodeFromJsonElement<T>(this)
