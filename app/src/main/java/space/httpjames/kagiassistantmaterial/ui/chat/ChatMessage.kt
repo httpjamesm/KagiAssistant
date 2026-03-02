@@ -367,6 +367,7 @@ fun ChatMessage(
                                                 onClick = {
                                                     showMetadataModal = true
                                                 },
+                                                enabled = metadata.isNotEmpty(),
                                                 colors = IconButtonDefaults.iconButtonColors(
                                                     contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
