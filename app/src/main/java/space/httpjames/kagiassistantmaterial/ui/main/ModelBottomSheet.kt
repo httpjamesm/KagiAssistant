@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.material.icons.filled.Science
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -36,10 +37,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import space.httpjames.kagiassistantmaterial.AssistantClient
-import space.httpjames.kagiassistantmaterial.utils.DataFetchingState
-import space.httpjames.kagiassistantmaterial.ui.viewmodel.AssistantViewModelFactory
 import space.httpjames.kagiassistantmaterial.ui.message.nameWithoutParentheticals
+import space.httpjames.kagiassistantmaterial.ui.viewmodel.AssistantViewModelFactory
 import space.httpjames.kagiassistantmaterial.ui.viewmodel.ModelBottomSheetViewModel
+import space.httpjames.kagiassistantmaterial.utils.DataFetchingState
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -131,13 +132,21 @@ fun ModelBottomSheet(
                                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     Text(
-                                        text = profile.name.nameWithoutParentheticals(),
+                                        text = profile.modelName.nameWithoutParentheticals(),
                                         style = MaterialTheme.typography.bodyLarge
                                     )
                                     if (uiState.profileKeysWithReasoningCapability.contains(profile.key)) {
                                         Icon(
                                             imageVector = Icons.Filled.Lightbulb,
                                             contentDescription = "Reasoning capable",
+                                            modifier = Modifier.size(18.dp),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    if (profile.modelName.contains("(Experimental)")) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Science,
+                                            contentDescription = "Experimental",
                                             modifier = Modifier.size(18.dp),
                                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -202,13 +211,21 @@ fun ModelBottomSheet(
                                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     Text(
-                                        text = profile.name.nameWithoutParentheticals(),
+                                        text = profile.modelName.nameWithoutParentheticals(),
                                         style = MaterialTheme.typography.bodyLarge
                                     )
                                     if (uiState.profileKeysWithReasoningCapability.contains(profile.key)) {
                                         Icon(
                                             imageVector = Icons.Filled.Lightbulb,
                                             contentDescription = "Reasoning capable",
+                                            modifier = Modifier.size(18.dp),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    if (profile.modelName.contains("(Experimental)")) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Science,
+                                            contentDescription = "Experimental",
                                             modifier = Modifier.size(18.dp),
                                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
