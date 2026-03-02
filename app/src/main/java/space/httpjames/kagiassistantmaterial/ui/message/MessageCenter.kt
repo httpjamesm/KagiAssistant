@@ -9,10 +9,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -21,6 +23,7 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilledIconButton
@@ -303,12 +306,17 @@ fun MessageCenter(
                     modifier = Modifier.weight(1f, fill = false),
                 ) {
                     val rawName = viewModel.getProfile()?.name
-                    val displayName = rawName
-                        ?.replace("(preview)", "")
-                        ?.replace("(reasoning)", "")
-                        ?.trim()
+                    val displayName = rawName?.nameWithoutParentheticals()
                         ?: "Select a model"
                     Text(text = displayName.ifBlank { "Select a model" })
+                    if (rawName?.contains("(Experimental)") ?: false) {
+                        Spacer(modifier = Modifier.width(2.dp))
+                        Icon(
+                            Icons.Filled.Science,
+                            contentDescription = "Experimental",
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
                 val isGenerating = messagesState.inProgressAssistantMessageId != null
                 FilledIconButton(
