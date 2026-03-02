@@ -65,19 +65,21 @@ class MainActivity : ComponentActivity() {
 
         val prefs = getSharedPreferences("assistant_prefs", MODE_PRIVATE)
 
-        val launcher =
-            registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-                prefs.edit().putBoolean(PreferenceKey.MIC_GRANTED.key, granted).apply()
-            }
-        launcher.launch(Manifest.permission.RECORD_AUDIO)
-
         val notifLauncher =
             registerForActivityResult(ActivityResultContracts.RequestPermission()) { _ -> }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-        ) {
-            notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }
+
+        val audioLauncher =
+            registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+                prefs.edit().putBoolean(PreferenceKey.MIC_GRANTED.key, granted).apply()
+                // Request notification permission after audio result so both dialogs are shown
+                // (Android only shows one permission dialog at a time).
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                    checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+                ) {
+                    notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }
+            }
+        audioLauncher.launch(Manifest.permission.RECORD_AUDIO)
 
         setContent {
             KagiAssistantTheme {

@@ -3,7 +3,6 @@ package space.httpjames.kagiassistantmaterial.ui.landing
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
 import androidx.compose.animation.core.LinearOutSlowInEasing
@@ -65,7 +64,8 @@ fun LandingScreen(onLoginSuccess: (String) -> Unit = {}) {
     val prefs =
         context.getSharedPreferences("assistant_prefs", android.content.Context.MODE_PRIVATE)
     val cacheDir = context.cacheDir.absolutePath
-    val sessionToken = prefs.getString(PreferenceKey.SESSION_TOKEN.key, PreferenceKey.DEFAULT_SESSION_TOKEN) ?: ""
+    val sessionToken =
+        prefs.getString(PreferenceKey.SESSION_TOKEN.key, PreferenceKey.DEFAULT_SESSION_TOKEN) ?: ""
 
     // For preview mode, we need a minimal AssistantClient - in real usage this will be provided
     val assistantClient = remember { AssistantClient(sessionToken) }
@@ -89,7 +89,7 @@ fun LandingScreen(onLoginSuccess: (String) -> Unit = {}) {
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             Column(
-                modifier = Modifier.padding(top = 90.dp, start = 24.dp)
+                modifier = Modifier.padding(top = 30.dp, start = 24.dp)
             ) {
                 Text(
                     "Kagi",
