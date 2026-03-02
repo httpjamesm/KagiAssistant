@@ -47,6 +47,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
@@ -69,6 +70,7 @@ fun MessageCenter(
     coroutineScope: CoroutineScope,
     prefs: android.content.SharedPreferences,
     cacheDir: String,
+    drawerIsOpen: Boolean = false,
 ) {
     val threadsState by viewModel.threadsState.collectAsState()
     val messagesState by viewModel.messagesState.collectAsState()
@@ -81,9 +83,17 @@ fun MessageCenter(
 
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 
     val context = LocalContext.current
+
+    LaunchedEffect(drawerIsOpen) {
+        if (drawerIsOpen) {
+            focusManager.clearFocus()
+            keyboard?.hide()
+        }
+    }
 
     LaunchedEffect(threadId, messagesState.messages.size, messagesState.isTemporaryChat) {
         if (messagesState.isTemporaryChat && messagesState.messages.isNotEmpty() && threadId != null) {

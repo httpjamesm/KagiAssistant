@@ -258,7 +258,8 @@ fun MainScreen(
                     viewModel = viewModel,
                     coroutineScope = scope,
                     prefs = prefs,
-                    cacheDir = cacheDir
+                    cacheDir = cacheDir,
+                    drawerIsOpen = drawerState.isOpen
                 )
             }
         }
