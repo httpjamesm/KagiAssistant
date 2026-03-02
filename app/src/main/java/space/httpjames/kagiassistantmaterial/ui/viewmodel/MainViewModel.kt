@@ -46,6 +46,7 @@ import space.httpjames.kagiassistantmaterial.parseThreadListHtml
 import space.httpjames.kagiassistantmaterial.parseThreadListJsonWrapper
 import space.httpjames.kagiassistantmaterial.toObject
 import space.httpjames.kagiassistantmaterial.ui.message.AssistantProfile
+import space.httpjames.kagiassistantmaterial.ui.message.nameWithoutParentheticals
 import space.httpjames.kagiassistantmaterial.ui.message.copyToTempFile
 import space.httpjames.kagiassistantmaterial.ui.message.to84x84ThumbFile
 import space.httpjames.kagiassistantmaterial.utils.DataFetchingState
@@ -102,6 +103,7 @@ private data class ThreadSession(
 data class MessageCenterUiState(
     val text: String = "",
     val isSearchEnabled: Boolean = false,
+    val thinkEnabled: Boolean = false,
     val showModelBottomSheet: Boolean = false,
     val profiles: List<AssistantProfile> = emptyList(),
     val showAttachmentBottomSheet: Boolean = false,
@@ -560,6 +562,62 @@ class MainViewModel(
         return _messageCenterState.value.profiles.find { it.key == key }
     }
 
+    /**
+     * True if there is another profile with the same base name that does not contain "(reasoning)".
+     */
+    private fun hasBaseVariant(profile: AssistantProfile): Boolean {
+        val profiles = _messageCenterState.value.profiles
+        return profiles.any {
+            it.key != profile.key &&
+                !it.name.contains("(reasoning)") &&
+                it.name.nameWithoutParentheticals() == profile.name.nameWithoutParentheticals()
+        }
+    }
+
+    /**
+     * True when the profile is a reasoning variant and has no base variant (reasoning-only model).
+     * Such models stay in the picker and Think is forced on, unclickable.
+     */
+    fun isReasoningOnlyModel(profile: AssistantProfile?): Boolean =
+        profile != null &&
+            profile.name.contains("(reasoning)") &&
+            !hasBaseVariant(profile)
+
+    /**
+     * Reasoning counterpart of the selected profile (same base name, "(reasoning)" in name).
+     * Used when Think is on.
+     */
+    private fun findReasoningCounterpart(profile: AssistantProfile?): AssistantProfile? {
+        if (profile == null) return null
+        val baseName = profile.name.nameWithoutParentheticals()
+        return _messageCenterState.value.profiles.find {
+            it.key != profile.key &&
+                it.name.contains("(reasoning)") &&
+                it.name.nameWithoutParentheticals() == baseName
+        }
+    }
+
+    /**
+     * True when the selected model has a reasoning counterpart (so Think button can toggle).
+     * Also true for reasoning-only models (Think shown forced on).
+     */
+    fun hasReasoningCounterpart(profile: AssistantProfile?): Boolean =
+        findReasoningCounterpart(profile) != null || isReasoningOnlyModel(profile)
+
+    /**
+     * Profile used for sending: when Think is on and a reasoning counterpart exists, use it;
+     * otherwise use the selected profile. Think is UI-only (not persisted).
+     */
+    fun getEffectiveProfile(): AssistantProfile? {
+        val current = getProfile() ?: return null
+        if (!_messageCenterState.value.thinkEnabled) return current
+        return findReasoningCounterpart(current) ?: current
+    }
+
+    fun toggleThink() {
+        _messageCenterState.update { it.copy(thinkEnabled = !it.thinkEnabled) }
+    }
+
     fun addAttachmentUri(context: Context, uri: String) {
         val totalSize =
             _messageCenterState.value.attachmentUris.sumOf { getFileSize(context, Uri.parse(it)) }
@@ -703,13 +761,14 @@ class MainViewModel(
 
             val saved = if (session.isTemporaryChat) false else autoSave
 
+            val effectiveProfile = getEffectiveProfile()
             val requestBody = KagiPromptRequest(
                 focus,
                 KagiPromptRequestProfile(
-                    getProfile()?.id,
+                    effectiveProfile?.id,
                     _messageCenterState.value.isSearchEnabled,
                     null,
-                    getProfile()?.model ?: "",
+                    effectiveProfile?.model ?: "",
                     false,
                 ),
                 if (getEditingMessageId().isNullOrBlank()) null else listOf(

@@ -11,6 +11,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import space.httpjames.kagiassistantmaterial.data.repository.AssistantRepository
 import space.httpjames.kagiassistantmaterial.ui.message.AssistantProfile
+import space.httpjames.kagiassistantmaterial.ui.message.nameWithoutParentheticals
 import space.httpjames.kagiassistantmaterial.utils.PreferenceKey
 import space.httpjames.kagiassistantmaterial.utils.DataFetchingState
 import android.content.SharedPreferences
@@ -85,11 +86,25 @@ class ModelBottomSheetViewModel(
         _uiState.update { it.copy(recentlyUsedProfileKeys = recentlyUsed) }
     }
 
+    /**
+     * True if there is another profile with the same base name (without parentheticals) that does
+     * not contain "(reasoning)". When false for a reasoning profile, it's reasoning-only (no base).
+     */
+    private fun hasBaseVariant(reasoningProfile: AssistantProfile, all: List<AssistantProfile>): Boolean =
+        all.any {
+            it.key != reasoningProfile.key &&
+                !it.name.contains("(reasoning)") &&
+                it.name.nameWithoutParentheticals() == reasoningProfile.name.nameWithoutParentheticals()
+        }
+
     fun fetchProfiles() {
         viewModelScope.launch {
             try {
                 _uiState.update { it.copy(profilesCallState = DataFetchingState.FETCHING) }
-                val profiles = repository.getProfiles()
+                val allProfiles = repository.getProfiles()
+                val profiles = allProfiles.filter { p ->
+                    !p.name.contains("(reasoning)") || !hasBaseVariant(p, allProfiles)
+                }
                 _uiState.update { it.copy(
                     profiles = profiles,
                     profilesCallState = DataFetchingState.OK

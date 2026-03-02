@@ -18,5 +18,11 @@ data class AssistantProfile(
     val key: String get() = id ?: model
 }
 
+/**
+ * Strips all parenthesized text (e.g. "Model (preview) (reasoning)" -> "Model").
+ */
+fun String.nameWithoutParentheticals(): String =
+    replace(Regex("""\s*\([^)]*\)"""), "").trim()
+
 inline fun <reified T> JsonElement.toObject(): T =
     JsonLenient.decodeFromJsonElement<T>(this)

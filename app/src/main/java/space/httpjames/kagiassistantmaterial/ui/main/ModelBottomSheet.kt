@@ -123,7 +123,7 @@ fun ModelBottomSheet(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = profile.name,
+                                    text = profile.name.replace("(preview)", "").trim(),
                                     style = MaterialTheme.typography.bodyLarge,
                                     modifier = Modifier.weight(1f)
                                 )
@@ -181,7 +181,7 @@ fun ModelBottomSheet(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = profile.name,
+                                    text = profile.name.replace("(preview)", "").trim(),
                                     style = MaterialTheme.typography.bodyLarge,
                                     modifier = Modifier.weight(1f)
                                 )
