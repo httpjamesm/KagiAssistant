@@ -88,20 +88,11 @@ fun ThreadsDrawerSheet(
             }
     }
 
-    // Determine filtered threads based on search state
+    // Display threads: show all until server search results are available, then filter to matches
     val displayThreads = remember(searchQuery, threads, searchResults) {
         when {
             searchQuery.isBlank() -> threads
-            // Short query: client-side filter
-            searchQuery.length < 3 || searchResults == null -> {
-                threads.mapValues { (_, threadList) ->
-                    threadList.filter { thread ->
-                        thread.title.contains(searchQuery, ignoreCase = true) ||
-                                thread.excerpt.contains(searchQuery, ignoreCase = true)
-                    }
-                }.filterValues { it.isNotEmpty() }
-            }
-            // Server-side search: filter to matching thread_ids, replace excerpts with snippets
+            searchResults == null -> threads
             else -> {
                 val matchingIds = searchResults.map { it.thread_id }.toSet()
                 val snippetMap = searchResults.associate { it.thread_id to it.snippet }
@@ -143,14 +134,6 @@ fun ThreadsDrawerSheet(
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
         ) {
             when {
-                isSearching -> Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) { CircularProgressIndicator() }
-
                 searchQuery.isNotBlank() && displayThreads.values.all { it.isEmpty() } && !isLoadingSearchPages ->
                     Column(
                         modifier = Modifier
