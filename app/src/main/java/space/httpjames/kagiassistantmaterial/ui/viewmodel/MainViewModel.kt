@@ -217,7 +217,6 @@ class MainViewModel(
             return
         }
 
-        // For short queries, do client-side filtering only
         if (query.length < 3) {
             _threadsState.update { it.copy(searchResults = null, isSearching = false, isLoadingSearchPages = false) }
             return
