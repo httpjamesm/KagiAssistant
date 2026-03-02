@@ -38,16 +38,15 @@ import space.httpjames.kagiassistantmaterial.MultipartAssistantPromptFile
 import space.httpjames.kagiassistantmaterial.StreamChunk
 import space.httpjames.kagiassistantmaterial.ThreadSearchResult
 import space.httpjames.kagiassistantmaterial.data.repository.AssistantRepository
+import space.httpjames.kagiassistantmaterial.parseMetadata
+import space.httpjames.kagiassistantmaterial.parseThreadListJsonWrapper
 import space.httpjames.kagiassistantmaterial.streaming.StreamMetadata
 import space.httpjames.kagiassistantmaterial.streaming.StreamRequest
 import space.httpjames.kagiassistantmaterial.streaming.StreamingSessionManager
-import space.httpjames.kagiassistantmaterial.parseMetadata
-import space.httpjames.kagiassistantmaterial.parseThreadListHtml
-import space.httpjames.kagiassistantmaterial.parseThreadListJsonWrapper
 import space.httpjames.kagiassistantmaterial.toObject
 import space.httpjames.kagiassistantmaterial.ui.message.AssistantProfile
-import space.httpjames.kagiassistantmaterial.ui.message.nameWithoutParentheticals
 import space.httpjames.kagiassistantmaterial.ui.message.copyToTempFile
+import space.httpjames.kagiassistantmaterial.ui.message.nameWithoutParentheticals
 import space.httpjames.kagiassistantmaterial.ui.message.to84x84ThumbFile
 import space.httpjames.kagiassistantmaterial.utils.DataFetchingState
 import space.httpjames.kagiassistantmaterial.utils.PreferenceKey
@@ -215,12 +214,24 @@ class MainViewModel(
         searchJob?.cancel()
 
         if (query.isBlank()) {
-            _threadsState.update { it.copy(searchResults = null, isSearching = false, isLoadingSearchPages = false) }
+            _threadsState.update {
+                it.copy(
+                    searchResults = null,
+                    isSearching = false,
+                    isLoadingSearchPages = false
+                )
+            }
             return
         }
 
         if (query.length < 3) {
-            _threadsState.update { it.copy(searchResults = null, isSearching = false, isLoadingSearchPages = false) }
+            _threadsState.update {
+                it.copy(
+                    searchResults = null,
+                    isSearching = false,
+                    isLoadingSearchPages = false
+                )
+            }
             return
         }
 
@@ -229,11 +240,13 @@ class MainViewModel(
             try {
                 // Fire search API call immediately
                 val results = repository.searchThreads(query)
-                _threadsState.update { it.copy(
-                    searchResults = results,
-                    isSearching = false,
-                    isLoadingSearchPages = _threadsState.value.hasMore
-                ) }
+                _threadsState.update {
+                    it.copy(
+                        searchResults = results,
+                        isSearching = false,
+                        isLoadingSearchPages = _threadsState.value.hasMore
+                    )
+                }
 
                 // Load remaining pages in background so more matches appear progressively
                 while (_threadsState.value.hasMore && _threadsState.value.nextCursor != null) {
@@ -258,7 +271,13 @@ class MainViewModel(
                 _threadsState.update { it.copy(isLoadingSearchPages = false) }
             } catch (e: Exception) {
                 e.printStackTrace()
-                _threadsState.update { it.copy(searchResults = emptyList(), isSearching = false, isLoadingSearchPages = false) }
+                _threadsState.update {
+                    it.copy(
+                        searchResults = emptyList(),
+                        isSearching = false,
+                        isLoadingSearchPages = false
+                    )
+                }
             }
         }
     }
@@ -311,7 +330,8 @@ class MainViewModel(
 
     fun editMessage(messageId: String) {
         val sessionKey = currentSessionKey
-        val currentMessages = sessionKey?.let { threadSessions[it]?.messages } ?: _messagesState.value.messages
+        val currentMessages =
+            sessionKey?.let { threadSessions[it]?.messages } ?: _messagesState.value.messages
         val index = currentMessages.indexOfFirst { it.id == messageId }
 
         if (index != -1) {
@@ -346,7 +366,8 @@ class MainViewModel(
         }
 
         val sessionKey = threadId
-        threadSessions[sessionKey] = ThreadSession(threadId = threadId, callState = DataFetchingState.FETCHING)
+        threadSessions[sessionKey] =
+            ThreadSession(threadId = threadId, callState = DataFetchingState.FETCHING)
         setActiveSession(sessionKey)
         prefs.edit().putString(PreferenceKey.SAVED_THREAD_ID.key, threadId).apply()
 
@@ -569,8 +590,8 @@ class MainViewModel(
         val profiles = _messageCenterState.value.profiles
         return profiles.any {
             it.key != profile.key &&
-                !it.name.contains("(reasoning)") &&
-                it.name.nameWithoutParentheticals() == profile.name.nameWithoutParentheticals()
+                    !it.modelName.contains("(reasoning)") &&
+                    it.name.nameWithoutParentheticals() == profile.name.nameWithoutParentheticals()
         }
     }
 
@@ -580,8 +601,8 @@ class MainViewModel(
      */
     fun isReasoningOnlyModel(profile: AssistantProfile?): Boolean =
         profile != null &&
-            profile.name.contains("(reasoning)") &&
-            !hasBaseVariant(profile)
+                profile.modelName.contains("(reasoning)") &&
+                !hasBaseVariant(profile)
 
     /**
      * Reasoning counterpart of the selected profile (same base name, "(reasoning)" in name).
@@ -592,8 +613,8 @@ class MainViewModel(
         val baseName = profile.name.nameWithoutParentheticals()
         return _messageCenterState.value.profiles.find {
             it.key != profile.key &&
-                it.name.contains("(reasoning)") &&
-                it.name.nameWithoutParentheticals() == baseName
+                    it.modelName.contains("(reasoning)") &&
+                    it.name.nameWithoutParentheticals() == baseName
         }
     }
 
@@ -694,7 +715,8 @@ class MainViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 repository.stopGeneration(traceId)
-            } catch (_: Exception) { }
+            } catch (_: Exception) {
+            }
         }
     }
 
@@ -833,7 +855,8 @@ class MainViewModel(
                         val title = json.jsonObject["title"]?.jsonPrimitive?.contentOrNull
                         if (title != null && id != null) {
                             updateSession(activeSessionKey) { it.copy(currentThreadTitle = title) }
-                            StreamingSessionManager.streamMetadata.getOrPut(streamId) { StreamMetadata() }.threadTitle = title
+                            StreamingSessionManager.streamMetadata.getOrPut(streamId) { StreamMetadata() }.threadTitle =
+                                title
                             _threadsState.update { state ->
                                 state.copy(
                                     threads = state.threads.mapValues { (_, threads) ->
@@ -897,7 +920,8 @@ class MainViewModel(
                                 )
                             }
                             if (dto.md != null) {
-                                StreamingSessionManager.streamMetadata.getOrPut(streamId) { StreamMetadata() }.lastResponseText = dto.md
+                                StreamingSessionManager.streamMetadata.getOrPut(streamId) { StreamMetadata() }.lastResponseText =
+                                    dto.md
                             }
                         }
 
@@ -914,7 +938,8 @@ class MainViewModel(
                                     updateSession(activeSessionKey) { it.copy(traceId = trace) }
                                 }
                             }
-                        } catch (_: Exception) { }
+                        } catch (_: Exception) {
+                        }
                     }
 
                     "tokens.json" -> {
@@ -1008,7 +1033,12 @@ class MainViewModel(
             }
 
             withContext(Dispatchers.Main) {
-                updateSession(activeSessionKey) { it.copy(inProgressAssistantMessageId = null, traceId = null) }
+                updateSession(activeSessionKey) {
+                    it.copy(
+                        inProgressAssistantMessageId = null,
+                        traceId = null
+                    )
+                }
                 updateMessagesStateFromSession(activeSessionKey)
                 updateGeneratingThreadsState()
             }
