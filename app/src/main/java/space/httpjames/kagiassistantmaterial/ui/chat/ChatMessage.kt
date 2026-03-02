@@ -168,7 +168,7 @@ fun ChatMessage(
     val background = if (isMe) MaterialTheme.colorScheme.primary
     else Color.Transparent
     val shape = if (isMe)
-        RoundedCornerShape(16.dp, 4.dp, 16.dp, 16.dp)
+        RoundedCornerShape(16.dp)
     else
         RoundedCornerShape(0.dp)
 
