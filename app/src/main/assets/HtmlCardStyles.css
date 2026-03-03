@@ -546,3 +546,7 @@ table td {
     line-height: 1.5;
     min-width: 5rem;
 }
+
+span.citation {
+    display: none;
+}
