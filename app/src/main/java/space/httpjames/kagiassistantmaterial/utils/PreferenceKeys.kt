@@ -17,7 +17,7 @@ enum class PreferenceKey(val key: String) {
     TTS_VOICE("tts_voice");
 
     companion object {
-        const val DEFAULT_ASSISTANT_MODEL = "gemini-2-5-flash-lite"
+        const val DEFAULT_ASSISTANT_MODEL = "gemini-3-1-flash-lite"
         const val DEFAULT_TTS_VOICE = ""
         val DEFAULT_SESSION_TOKEN =
             null // this will never be filled. but it's there for graceful error handling (and maybe some dangerous debugging
