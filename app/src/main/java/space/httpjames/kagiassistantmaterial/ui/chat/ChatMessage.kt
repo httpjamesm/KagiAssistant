@@ -56,6 +56,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
+import org.jsoup.Jsoup
 import space.httpjames.kagiassistantmaterial.AssistantThreadMessageDocument
 import space.httpjames.kagiassistantmaterial.AssistantThreadMessageRole
 import space.httpjames.kagiassistantmaterial.Citation
@@ -88,6 +89,10 @@ object ContentParser {
         RegexOption.DOT_MATCHES_ALL
     )
 
+    private fun hasVisibleText(html: String): Boolean {
+        return Jsoup.parseBodyFragment(html).text().trim().isNotEmpty()
+    }
+
     fun parseContent(html: String): List<ContentSegment> {
         if (html.isEmpty()) return emptyList()
 
@@ -98,7 +103,7 @@ object ContentParser {
             // Add content before this <details> block
             if (match.range.first > lastIndex) {
                 val htmlBefore = html.substring(lastIndex, match.range.first).trim()
-                if (htmlBefore.isNotEmpty()) {
+                if (htmlBefore.isNotEmpty() && hasVisibleText(htmlBefore)) {
                     segments.add(ContentSegment.HtmlContent(htmlBefore))
                 }
             }
@@ -140,7 +145,7 @@ object ContentParser {
         // Add remaining content after last <details>
         if (lastIndex < html.length) {
             val htmlAfter = html.substring(lastIndex).trim()
-            if (htmlAfter.isNotEmpty()) {
+            if (htmlAfter.isNotEmpty() && hasVisibleText(htmlAfter)) {
                 segments.add(ContentSegment.HtmlContent(htmlAfter))
             }
         }
@@ -185,12 +190,17 @@ fun ChatMessage(
         contentSegments.mapIndexed { index, segment ->
             when (segment) {
                 is ContentSegment.Event -> {
-                    // If titleends with a period, NOT completed
-                    // Otherwise, completed only if there's a segment after
                     if (segment.title.endsWith(".")) {
                         false
+                    } else if (finishedGenerating) {
+                        true
+                    } else if (index < contentSegments.lastIndex) {
+                        val nextSegment = contentSegments[index + 1]
+                        nextSegment is ContentSegment.Event ||
+                            (nextSegment is ContentSegment.HtmlContent &&
+                                Jsoup.parseBodyFragment(nextSegment.html).text().trim().isNotEmpty())
                     } else {
-                        index < contentSegments.lastIndex
+                        false
                     }
                 }
 
