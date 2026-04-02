@@ -37,7 +37,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -181,9 +180,13 @@ fun ChatMessage(
     var menuExpanded by remember { mutableStateOf(false) }
     var showMetadataModal by remember { mutableStateOf(false) }
     var isUserMessageExpanded by remember { mutableStateOf(false) }
+    var selectedEventIndex by remember(id) { mutableStateOf<Int?>(null) }
 
     val contentSegments = remember(content, id) {
         ContentParser.parseContent(content)
+    }
+    val eventSegments = remember(contentSegments) {
+        contentSegments.filterIsInstance<ContentSegment.Event>()
     }
 
     val eventCompletionStates = remember(contentSegments, finishedGenerating) {
@@ -208,12 +211,6 @@ fun ChatMessage(
             }
         }
     }
-
-
-    val eventExpandedStates = remember(id) {
-        mutableStateMapOf<Int, Boolean>()
-    }
-
 
     val documentsScroll = rememberScrollState()
 
@@ -309,13 +306,8 @@ fun ChatMessage(
                                                 ChatEvent(
                                                     completed = eventCompletionStates[index],
                                                     displayText = segment.title,
-                                                    content = segment.content,
-                                                    expanded = eventExpandedStates[currentEventIndex]
-                                                        ?: false,
-                                                    onExpandRequest = {
-                                                        eventExpandedStates[currentEventIndex] =
-                                                            !(eventExpandedStates[currentEventIndex]
-                                                                ?: false)
+                                                    onViewDetailsRequest = {
+                                                        selectedEventIndex = currentEventIndex
                                                     }
                                                 )
                                             }
@@ -486,6 +478,16 @@ fun ChatMessage(
         SourcesBottomSheet(citations = citations, onDismissRequest = {
             showSourcesSheet = false
         })
+    }
+
+    selectedEventIndex?.let { eventIndex ->
+        eventSegments.getOrNull(eventIndex)?.let { event ->
+            ChatEventBottomSheet(
+                title = event.title,
+                content = event.content,
+                onDismissRequest = { selectedEventIndex = null }
+            )
+        }
     }
 
     if (showMetadataModal) {
