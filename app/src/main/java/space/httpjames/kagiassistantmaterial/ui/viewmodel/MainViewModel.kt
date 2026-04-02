@@ -24,6 +24,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.jsoup.Jsoup
+import space.httpjames.kagiassistantmaterial.AssistantBootstrapData
 import space.httpjames.kagiassistantmaterial.AssistantThread
 import space.httpjames.kagiassistantmaterial.AssistantThreadMessage
 import space.httpjames.kagiassistantmaterial.AssistantThreadMessageDocument
@@ -102,9 +103,11 @@ private data class ThreadSession(
 data class MessageCenterUiState(
     val text: String = "",
     val isSearchEnabled: Boolean = false,
+    val internetAccessOverride: Boolean? = null,
     val thinkEnabled: Boolean = false,
     val showModelBottomSheet: Boolean = false,
     val profiles: List<AssistantProfile> = emptyList(),
+    val selectedProfileKey: String? = null,
     val showAttachmentBottomSheet: Boolean = false,
     val attachmentUris: List<String> = emptyList(),
     val showAttachmentSizeLimitWarning: Boolean = false
@@ -145,8 +148,15 @@ class MainViewModel(
     val generatingThreadsState: StateFlow<Set<String>> = _generatingThreadsState.asStateFlow()
 
     // MessageCenter state
-    private val _messageCenterState = MutableStateFlow(MessageCenterUiState())
+    private val _messageCenterState = MutableStateFlow(
+        MessageCenterUiState(
+            selectedProfileKey = prefs.getString(PreferenceKey.PROFILE.key, null)
+        )
+    )
     val messageCenterState: StateFlow<MessageCenterUiState> = _messageCenterState.asStateFlow()
+
+    private var profileSyncJob: Job? = null
+    private var cachedBootstrapData: AssistantBootstrapData? = null
 
     init {
         restoreThread()
@@ -313,6 +323,7 @@ class MainViewModel(
         setActiveSession(tempId)
         _threadsState.update { it.copy(currentThreadId = null) }
         prefs.edit().remove(PreferenceKey.SAVED_THREAD_ID.key).apply()
+        syncProfileSelectionForSession(tempId)
     }
 
     fun toggleIsTemporaryChat() {
@@ -321,6 +332,7 @@ class MainViewModel(
             threadSessions[tempId] = ThreadSession(threadId = null)
             updateGeneratingThreadsState()
             setActiveSession(tempId)
+            syncProfileSelectionForSession(tempId)
             tempId
         }
         updateSession(sessionKey) { session ->
@@ -362,6 +374,7 @@ class MainViewModel(
         if (existingKey != null) {
             setActiveSession(existingKey)
             prefs.edit().putString(PreferenceKey.SAVED_THREAD_ID.key, threadId).apply()
+            syncProfileSelectionForSession(existingKey)
             return
         }
 
@@ -411,7 +424,9 @@ class MainViewModel(
                             branchIds = dto.branch_list,
                             finishedGenerating = true,
                             markdownContent = dto.md,
-                            metadata = parseMetadata(dto.metadata)
+                            metadata = parseMetadata(dto.metadata),
+                            profileKey = parseMessageProfileKey(dto),
+                            internetAccess = dto.profile?.internet_access
                         )
                     )
                 }
@@ -421,6 +436,7 @@ class MainViewModel(
                         callState = DataFetchingState.OK
                     )
                 }
+                syncProfileSelectionForSession(sessionKey)
             } catch (e: Exception) {
                 e.printStackTrace()
                 updateSession(sessionKey) { it.copy(callState = DataFetchingState.ERRORED) }
@@ -433,7 +449,9 @@ class MainViewModel(
         if (savedId != null && savedId != _threadsState.value.currentThreadId) {
             onThreadSelected(savedId)
         } else if (activeSessionKey == null && threadSessions.isNotEmpty()) {
-            setActiveSession(threadSessions.keys.first())
+            val sessionKey = threadSessions.keys.first()
+            setActiveSession(sessionKey)
+            syncProfileSelectionForSession(sessionKey)
         }
     }
 
@@ -528,6 +546,122 @@ class MainViewModel(
             .toSet()
     }
 
+    private suspend fun ensureProfilesLoaded(): List<AssistantProfile> {
+        val profiles = _messageCenterState.value.profiles
+        if (profiles.isNotEmpty()) {
+            return profiles
+        }
+
+        val loadedProfiles = repository.getProfiles()
+        _messageCenterState.update { it.copy(profiles = loadedProfiles) }
+        return loadedProfiles
+    }
+
+    private suspend fun getAssistantBootstrapData(): AssistantBootstrapData {
+        cachedBootstrapData?.let { return it }
+
+        val bootstrapData = repository.getAssistantBootstrapData()
+        cachedBootstrapData = bootstrapData
+        return bootstrapData
+    }
+
+    fun refreshRemoteBackedState() {
+        viewModelScope.launch {
+            try {
+                cachedBootstrapData = null
+                val profiles = repository.getProfiles()
+                _messageCenterState.update { it.copy(profiles = profiles) }
+
+                val activeSession = currentSessionKey
+                if (activeSession != null) {
+                    val session = threadSessions[activeSession]
+                    if (session?.threadId != null && session.messages.isEmpty()) {
+                        return@launch
+                    }
+                    syncProfileSelectionForSession(activeSession)
+                    return@launch
+                }
+
+                val selection = resolveProfileFromBootstrap(
+                    initialProfileKey = getAssistantBootstrapData().initialProfileKey,
+                    profiles = profiles
+                )?.let {
+                    normalizeResolvedProfileSelection(
+                        resolvedProfile = it,
+                        profiles = profiles,
+                        source = ThreadProfileSelectionSource.BOOTSTRAP,
+                    )
+                } ?: return@launch
+
+                persistResolvedProfileSelection(selection)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private fun syncProfileSelectionForSession(sessionKey: String?) {
+        if (sessionKey == null) return
+
+        profileSyncJob?.cancel()
+        profileSyncJob = viewModelScope.launch {
+            try {
+                val profiles = ensureProfilesLoaded()
+                val messages = threadSessions[sessionKey]?.messages.orEmpty()
+                val threadInternetAccess = resolveInternetAccessFromThreadMessages(messages)
+                val selection = resolveProfileFromThreadMessages(messages, profiles)
+                    ?.let {
+                        normalizeResolvedProfileSelection(
+                            resolvedProfile = it,
+                            profiles = profiles,
+                            internetAccessOverride = threadInternetAccess,
+                            source = ThreadProfileSelectionSource.THREAD_MESSAGE,
+                        )
+                    }
+                    ?: resolveProfileFromBootstrap(
+                        initialProfileKey = getAssistantBootstrapData().initialProfileKey,
+                        profiles = profiles
+                    )?.let {
+                        normalizeResolvedProfileSelection(
+                            resolvedProfile = it,
+                            profiles = profiles,
+                            internetAccessOverride = threadInternetAccess,
+                            source = ThreadProfileSelectionSource.BOOTSTRAP,
+                        )
+                    }
+                    ?: return@launch
+
+                if (sessionKey != currentSessionKey) {
+                    return@launch
+                }
+
+                persistResolvedProfileSelection(selection)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private fun persistResolvedProfileSelection(selection: ThreadProfileSelection) {
+        prefs.edit().putString(PreferenceKey.PROFILE.key, selection.profile.key).apply()
+        _messageCenterState.update {
+            it.copy(
+                isSearchEnabled = resolveInternetAccessForSelection(
+                    selection = selection,
+                    currentValue = it.isSearchEnabled,
+                    autoToggleInternet = prefs.getBoolean(
+                        PreferenceKey.AUTO_TOGGLE_INTERNET.key,
+                        PreferenceKey.DEFAULT_AUTO_TOGGLE_INTERNET
+                    ),
+                    previousOverride = it.internetAccessOverride,
+                ),
+                internetAccessOverride = selection.internetAccessOverride,
+                selectedProfileKey = selection.profile.key,
+                thinkEnabled = selection.thinkEnabled
+            )
+        }
+    }
+
     // ========== MessageCenter functions ==========
 
     private fun fetchProfiles() {
@@ -567,7 +701,12 @@ class MainViewModel(
     }
 
     fun toggleSearch() {
-        _messageCenterState.update { it.copy(isSearchEnabled = !it.isSearchEnabled) }
+        _messageCenterState.update {
+            it.copy(
+                isSearchEnabled = !it.isSearchEnabled,
+                internetAccessOverride = null
+            )
+        }
     }
 
     fun openModelBottomSheet() {
@@ -575,11 +714,19 @@ class MainViewModel(
     }
 
     fun dismissModelBottomSheet() {
-        _messageCenterState.update { it.copy(showModelBottomSheet = false) }
+        _messageCenterState.update {
+            it.copy(
+                showModelBottomSheet = false,
+                internetAccessOverride = null,
+                selectedProfileKey = prefs.getString(PreferenceKey.PROFILE.key, null)
+            )
+        }
     }
 
     fun getProfile(): AssistantProfile? {
-        val key = prefs.getString(PreferenceKey.PROFILE.key, null) ?: return null
+        val key = _messageCenterState.value.selectedProfileKey
+            ?: prefs.getString(PreferenceKey.PROFILE.key, null)
+            ?: return null
         return _messageCenterState.value.profiles.find { it.key == key }
     }
 
@@ -773,10 +920,22 @@ class MainViewModel(
 
             var autoSave = true
             try {
-                if (_messageCenterState.value.profiles.isEmpty()) {
-                    _messageCenterState.update { it.copy(profiles = repository.getProfiles()) }
+                val profiles = ensureProfilesLoaded()
+                val bootstrapData = getAssistantBootstrapData()
+
+                if (getProfile() == null) {
+                    resolveProfileFromBootstrap(bootstrapData.initialProfileKey, profiles)
+                        ?.let {
+                            normalizeResolvedProfileSelection(
+                                resolvedProfile = it,
+                                profiles = profiles,
+                                source = ThreadProfileSelectionSource.BOOTSTRAP,
+                            )
+                        }
+                        ?.let { persistResolvedProfileSelection(it) }
                 }
-                autoSave = repository.getAutoSave()
+
+                autoSave = bootstrapData.autoSave
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -840,6 +999,13 @@ class MainViewModel(
             }
 
             val streamId = "main:${activeSessionKey}:${System.currentTimeMillis()}"
+
+            updateMessageById(currentInProgressId) { msg ->
+                msg.copy(
+                    profileKey = effectiveProfile?.key,
+                    internetAccess = _messageCenterState.value.isSearchEnabled
+                )
+            }
 
             suspend fun onChunk(chunk: StreamChunk) {
                 when (chunk.header) {
@@ -916,7 +1082,9 @@ class MainViewModel(
                                     content = dto.reply,
                                     citations = preparedCitations,
                                     markdownContent = dto.md,
-                                    metadata = parseMetadata(dto.metadata)
+                                    metadata = parseMetadata(dto.metadata),
+                                    profileKey = parseMessageProfileKey(dto),
+                                    internetAccess = dto.profile?.internet_access ?: msg.internetAccess
                                 )
                             }
                             if (dto.md != null) {
@@ -1062,3 +1230,142 @@ fun String.decodeDataUriToBitmap(): android.graphics.Bitmap {
     return android.graphics.BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)
         ?: error("Failed to decode bytes into Bitmap (invalid image data)")
 }
+
+data class ThreadProfileSelection(
+    val profile: AssistantProfile,
+    val thinkEnabled: Boolean = false,
+    val internetAccessOverride: Boolean? = null,
+    val source: ThreadProfileSelectionSource,
+)
+
+enum class ThreadProfileSelectionSource {
+    THREAD_MESSAGE,
+    BOOTSTRAP,
+}
+
+fun parseMessageProfileKey(dto: MessageDto): String? =
+    dto.profile
+        ?.key
+        ?.trim()
+        ?.takeIf { it.isNotEmpty() }
+
+fun resolveProfileFromThreadMessages(
+    messages: List<AssistantThreadMessage>,
+    profiles: List<AssistantProfile>,
+): AssistantProfile? {
+    val profileIdentity = messages
+        .lastOrNull { it.profileIdentity() != null }
+        ?.profileIdentity()
+        ?: return null
+
+    return profiles.find { it.key == profileIdentity }
+}
+
+fun resolveProfileFromBootstrap(
+    initialProfileKey: String?,
+    profiles: List<AssistantProfile>,
+): AssistantProfile? {
+    val rawKey = initialProfileKey
+        ?.trim()
+        ?.takeIf { it.isNotEmpty() }
+        ?: return null
+
+    return profiles.find { it.shortcut == rawKey || it.key == rawKey }
+}
+
+fun resolveThreadProfileSelection(
+    messages: List<AssistantThreadMessage>,
+    profiles: List<AssistantProfile>,
+    initialProfileKey: String?,
+): ThreadProfileSelection? {
+    val internetAccessOverride = resolveInternetAccessFromThreadMessages(messages)
+    val resolvedFromThread = resolveProfileFromThreadMessages(messages, profiles)
+    val source = if (resolvedFromThread != null) {
+        ThreadProfileSelectionSource.THREAD_MESSAGE
+    } else {
+        ThreadProfileSelectionSource.BOOTSTRAP
+    }
+    val resolvedProfile = resolvedFromThread
+        ?: resolveProfileFromBootstrap(initialProfileKey, profiles)
+        ?: return null
+
+    return normalizeResolvedProfileSelection(
+        resolvedProfile = resolvedProfile,
+        profiles = profiles,
+        internetAccessOverride = internetAccessOverride,
+        source = source,
+    )
+}
+
+fun normalizeResolvedProfileSelection(
+    resolvedProfile: AssistantProfile,
+    profiles: List<AssistantProfile>,
+    internetAccessOverride: Boolean? = null,
+    source: ThreadProfileSelectionSource,
+): ThreadProfileSelection {
+    val isReasoningProfile = resolvedProfile.modelName.contains("(reasoning)", ignoreCase = true)
+    if (!isReasoningProfile) {
+        return ThreadProfileSelection(
+            profile = resolvedProfile,
+            internetAccessOverride = internetAccessOverride,
+            source = source,
+        )
+    }
+
+    val baseName = resolvedProfile.name.nameWithoutParentheticals()
+    val baseVariant = profiles.find {
+        it.key != resolvedProfile.key &&
+            !it.modelName.contains("(reasoning)", ignoreCase = true) &&
+            it.name.nameWithoutParentheticals() == baseName
+    }
+
+    return if (baseVariant != null) {
+        ThreadProfileSelection(
+            profile = baseVariant,
+            thinkEnabled = true,
+            internetAccessOverride = internetAccessOverride,
+            source = source,
+        )
+    } else {
+        ThreadProfileSelection(
+            profile = resolvedProfile,
+            internetAccessOverride = internetAccessOverride,
+            source = source,
+        )
+    }
+}
+
+fun resolveInternetAccessForSelection(
+    selection: ThreadProfileSelection,
+    currentValue: Boolean,
+    autoToggleInternet: Boolean = true,
+    previousOverride: Boolean? = null,
+): Boolean =
+    when {
+        selection.internetAccessOverride != null -> selection.internetAccessOverride
+        selection.source == ThreadProfileSelectionSource.BOOTSTRAP && autoToggleInternet ->
+            selection.profile.internetAccess
+        selection.source == ThreadProfileSelectionSource.BOOTSTRAP && previousOverride != null ->
+            false
+        else -> currentValue
+    }
+
+fun resolveInternetAccessFromThreadMessages(messages: List<AssistantThreadMessage>): Boolean? =
+    messages
+        .lastOrNull { it.role == AssistantThreadMessageRole.ASSISTANT && it.internetAccess != null }
+        ?.internetAccess
+
+private fun AssistantThreadMessage.profileIdentity(): String? =
+    profileKey?.trim()?.takeIf { it.isNotEmpty() }
+        ?: extractProfileIdentityFromMetadata(metadata)
+
+private fun extractProfileIdentityFromMetadata(metadata: Map<String, String>): String? =
+    metadata.entries
+        .firstOrNull { (key, _) ->
+            key.equals("id", ignoreCase = true) ||
+                key.equals("model", ignoreCase = true) ||
+                key.equals("profile", ignoreCase = true)
+        }
+        ?.value
+        ?.trim()
+        ?.takeIf { it.isNotEmpty() }

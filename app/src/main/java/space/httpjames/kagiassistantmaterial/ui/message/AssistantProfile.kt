@@ -15,6 +15,7 @@ data class AssistantProfile(
     @SerialName("model_name") val modelName: String, // NOT THE SAME AS NAME! this is the server side base layer model name
     @SerialName("model_input_limit") val maxInputChars: Int = 40_000,
     @SerialName("internet_access") val internetAccess: Boolean = false,
+    @SerialName("shortcut") val shortcut: String? = null,
 ) {
     val key: String get() = id ?: model
 }
