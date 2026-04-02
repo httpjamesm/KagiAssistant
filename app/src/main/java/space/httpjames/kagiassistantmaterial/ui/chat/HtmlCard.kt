@@ -9,6 +9,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -33,12 +34,18 @@ fun HtmlCard(
     html: String,
     modifier: Modifier = Modifier,
     minHeight: Dp = 60.dp,
+    maxHeight: Dp = Dp.Unspecified,
+    allowInternalScroll: Boolean = false,
     onHeightMeasured: (() -> Unit)? = null,
 ) {
     var heightState by remember { mutableIntStateOf(0) }
 
     val animatedHeight by animateDpAsState(
-        targetValue = heightState.dp.coerceAtLeast(minHeight),
+        targetValue = if (maxHeight != Dp.Unspecified) {
+            heightState.dp.coerceIn(minHeight, maxHeight)
+        } else {
+            heightState.dp.coerceAtLeast(minHeight)
+        },
         animationSpec = spring(stiffness = Spring.StiffnessLow),
         label = "height"
     )
@@ -56,34 +63,49 @@ fun HtmlCard(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = minHeight)
+                .let {
+                    if (maxHeight != Dp.Unspecified) {
+                        it.heightIn(min = minHeight, max = maxHeight)
+                    } else {
+                        it.heightIn(min = minHeight)
+                    }
+                }
                 .height(animatedHeight),
             contentAlignment = Alignment.Center,
         ) {
             AndroidView(
                 factory = { context ->
-                    object : WebView(context) {
-                        override fun overScrollBy(
-                            deltaX: Int, deltaY: Int,
-                            scrollX: Int, scrollY: Int,
-                            scrollRangeX: Int, scrollRangeY: Int,
-                            maxOverScrollX: Int, maxOverScrollY: Int,
-                            isTouchEvent: Boolean
-                        ): Boolean {
-                            return false
-                        }
+                    val webView = if (allowInternalScroll) {
+                        WebView(context)
+                    } else {
+                        object : WebView(context) {
+                            override fun overScrollBy(
+                                deltaX: Int, deltaY: Int,
+                                scrollX: Int, scrollY: Int,
+                                scrollRangeX: Int, scrollRangeY: Int,
+                                maxOverScrollX: Int, maxOverScrollY: Int,
+                                isTouchEvent: Boolean
+                            ): Boolean {
+                                return false
+                            }
 
-                        override fun scrollTo(x: Int, y: Int) {
-                            // Prevent all internal scrolling
+                            override fun scrollTo(x: Int, y: Int) {
+                                // Prevent all internal scrolling in inline cards.
+                            }
                         }
+                    }
 
-                    }.apply {
-                        isVerticalScrollBarEnabled = false
+                    webView.apply {
+                        isVerticalScrollBarEnabled = allowInternalScroll
                         isHorizontalScrollBarEnabled = false
                         scrollBarStyle = View.SCROLLBARS_INSIDE_OVERLAY
                         isNestedScrollingEnabled = false
-                        overScrollMode = View.OVER_SCROLL_NEVER
-                        isScrollContainer = false
+                        overScrollMode = if (allowInternalScroll) {
+                            View.OVER_SCROLL_IF_CONTENT_SCROLLS
+                        } else {
+                            View.OVER_SCROLL_NEVER
+                        }
+                        isScrollContainer = allowInternalScroll
 
                         addJavascriptInterface(
                             HtmlViewerJavaScriptInterface(
@@ -110,7 +132,12 @@ fun HtmlCard(
                         val night =
                             (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
                         val styledHtml =
-                            wrapHtmlWithStyles(context, html, if (night) "dark" else "light")
+                            wrapHtmlWithStyles(
+                                context = context,
+                                html = html,
+                                cssScheme = if (night) "dark" else "light",
+                                allowPageScroll = allowInternalScroll,
+                            )
                         tag = html
                         loadDataWithBaseURL(null, styledHtml, "text/html", "utf-8", null)
                     }
@@ -130,7 +157,7 @@ fun HtmlCard(
                         webView.evaluateJavascript("updateContent('$escapedHtml');", null)
                     }
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxSize(),
             )
         }
     }
@@ -151,11 +178,28 @@ private class HtmlViewerJavaScriptInterface(
     }
 }
 
-private fun wrapHtmlWithStyles(context: Context, html: String, cssScheme: String): String {
+private fun wrapHtmlWithStyles(
+    context: Context,
+    html: String,
+    cssScheme: String,
+    allowPageScroll: Boolean = false,
+): String {
     val codehiliteStyles =
         context.assets.open("HtmlCardCodehiliteStyles.css").bufferedReader().use { it.readText() }
     val mainStyles =
         context.assets.open("HtmlCardStyles.css").bufferedReader().use { it.readText() }
+    val scrollingStyles = if (allowPageScroll) {
+        """
+        html, body {
+            overflow-x: hidden;
+            overflow-y: auto;
+            touch-action: pan-y;
+            -webkit-overflow-scrolling: touch;
+        }
+        """.trimIndent()
+    } else {
+        ""
+    }
 
     return """
         <!DOCTYPE html>
@@ -167,6 +211,7 @@ private fun wrapHtmlWithStyles(context: Context, html: String, cssScheme: String
                 body { margin: 0; padding: 0; background-color: transparent; }
                 $mainStyles
                 $codehiliteStyles
+                $scrollingStyles
             </style>
         </head>
         <body>
