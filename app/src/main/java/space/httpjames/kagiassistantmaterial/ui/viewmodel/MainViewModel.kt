@@ -565,6 +565,41 @@ class MainViewModel(
         return bootstrapData
     }
 
+    fun refreshRemoteBackedState() {
+        viewModelScope.launch {
+            try {
+                cachedBootstrapData = null
+                val profiles = repository.getProfiles()
+                _messageCenterState.update { it.copy(profiles = profiles) }
+
+                val activeSession = currentSessionKey
+                if (activeSession != null) {
+                    val session = threadSessions[activeSession]
+                    if (session?.threadId != null && session.messages.isEmpty()) {
+                        return@launch
+                    }
+                    syncProfileSelectionForSession(activeSession)
+                    return@launch
+                }
+
+                val selection = resolveProfileFromBootstrap(
+                    initialProfileKey = getAssistantBootstrapData().initialProfileKey,
+                    profiles = profiles
+                )?.let {
+                    normalizeResolvedProfileSelection(
+                        resolvedProfile = it,
+                        profiles = profiles,
+                        source = ThreadProfileSelectionSource.BOOTSTRAP,
+                    )
+                } ?: return@launch
+
+                persistResolvedProfileSelection(selection)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     private fun syncProfileSelectionForSession(sessionKey: String?) {
         if (sessionKey == null) return
 
