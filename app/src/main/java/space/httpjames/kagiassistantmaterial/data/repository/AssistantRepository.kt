@@ -5,7 +5,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonElement
 import space.httpjames.kagiassistantmaterial.AssistantClient
-import space.httpjames.kagiassistantmaterial.AssistantBootstrapData
 import space.httpjames.kagiassistantmaterial.AssistantThread
 import space.httpjames.kagiassistantmaterial.KagiCompanion
 import space.httpjames.kagiassistantmaterial.QrRemoteSessionDetails
@@ -57,8 +56,6 @@ interface AssistantRepository {
     ): Flow<StreamChunk>
 
     fun getSessionToken(): String
-
-    suspend fun getAssistantBootstrapData(): AssistantBootstrapData
 
     suspend fun getAutoSave(): Boolean
 }
@@ -148,11 +145,6 @@ class AssistantRepositoryImpl(
     override fun getSessionToken(): String {
         return assistantClient.getSessionToken()
     }
-
-    override suspend fun getAssistantBootstrapData(): AssistantBootstrapData =
-        withContext(Dispatchers.IO) {
-            assistantClient.getAssistantBootstrapData()
-        }
 
     override suspend fun getAutoSave(): Boolean = withContext(Dispatchers.IO) {
         assistantClient.getAutoSave()

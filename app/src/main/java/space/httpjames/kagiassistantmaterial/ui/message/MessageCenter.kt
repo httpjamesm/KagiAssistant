@@ -122,7 +122,7 @@ fun MessageCenter(
     }
 
     // set the web search default based on the profile's returned default
-    LaunchedEffect(viewModel.getProfile(), messageCenterState.internetAccessOverride) {
+    LaunchedEffect(viewModel.getProfile()) {
         val autoToggleInternet = prefs.getBoolean(
             PreferenceKey.AUTO_TOGGLE_INTERNET.key,
             PreferenceKey.DEFAULT_AUTO_TOGGLE_INTERNET
@@ -131,9 +131,7 @@ fun MessageCenter(
             return@LaunchedEffect
         }
 
-        val internetAccess = messageCenterState.internetAccessOverride
-            ?: viewModel.getProfile()?.internetAccess
-            ?: return@LaunchedEffect
+        val internetAccess = viewModel.getProfile()?.internetAccess ?: return@LaunchedEffect
 
         if (internetAccess != messageCenterState.isSearchEnabled) {
             viewModel.toggleSearch()

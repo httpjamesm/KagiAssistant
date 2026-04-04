@@ -63,8 +63,6 @@ data class AssistantThreadMessage(
     val finishedGenerating: Boolean = false,
     val markdownContent: String? = null,
     val metadata: Map<String, String> = emptyMap(),
-    val profileKey: String? = null,
-    val internetAccess: Boolean? = null,
 )
 
 data class AssistantThreadMessageDocument(
@@ -84,7 +82,6 @@ data class MessageDto(
     val references_html: String = "",
     val md: String? = null,
     val metadata: String = "",
-    val profile: KagiPromptRequestProfile? = null,
     val state: String = "waiting",
 )
 
@@ -116,14 +113,12 @@ data class KagiPromptRequestFocus(
 
 @Serializable
 data class KagiPromptRequestProfile(
-    val id: String? = null,
-    val internet_access: Boolean = false,
-    val lens_id: String? = null,
-    val model: String = "",
-    val personalizations: Boolean = false,
-) {
-    val key: String get() = id ?: model
-}
+    val id: String?,
+    val internet_access: Boolean,
+    val lens_id: String?,
+    val model: String,
+    val personalizations: Boolean,
+)
 
 @Serializable
 data class KagiPromptRequestThreads(
@@ -156,11 +151,6 @@ data class StreamChunk(
 data class ThreadPageData(
     val title: String?,
     val messagesJson: String,
-)
-
-data class AssistantBootstrapData(
-    val autoSave: Boolean = true,
-    val initialProfileKey: String? = null,
 )
 
 data class QrRemoteSessionDetails(
@@ -382,7 +372,7 @@ class AssistantClient(
         }
     }
 
-    suspend fun getAssistantBootstrapData(): AssistantBootstrapData {
+    suspend fun getAutoSave(): Boolean {
         val request = Request.Builder()
             .url("https://kagi.com/assistant")
             .headers(baseHeaders)
@@ -390,13 +380,12 @@ class AssistantClient(
             .build()
 
         return okHttpClient.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) return AssistantBootstrapData()
-            val body = response.body?.string() ?: return AssistantBootstrapData()
-            parseAssistantBootstrapData(body)
+            if (!response.isSuccessful) return true
+            val body = response.body?.string() ?: return true
+            val match = Regex("""window\.AUTO_SAVE\s*=\s*(true|false)\s*;""").find(body)
+            match?.groupValues?.get(1)?.toBooleanStrictOrNull() ?: true
         }
     }
-
-    suspend fun getAutoSave(): Boolean = getAssistantBootstrapData().autoSave
 
     suspend fun checkAuthentication(): Boolean {
         val request = Request.Builder()
@@ -687,31 +676,6 @@ fun parseMetadata(html: String): Map<String, String> {
         val value = li.selectFirst("span.value")?.text() ?: ""
         key to value
     }
-}
-
-fun parseAssistantBootstrapData(html: String): AssistantBootstrapData {
-    val autoSave = Regex("""window\.AUTO_SAVE\s*=\s*(true|false)\s*;""")
-        .find(html)
-        ?.groupValues
-        ?.getOrNull(1)
-        ?.toBooleanStrictOrNull()
-        ?: true
-
-    val doc = Jsoup.parse(html)
-    val initialProfileElement = doc.selectFirst("#initial-profile")
-    val initialProfileKey = initialProfileElement
-        ?.text()
-        ?.trim()
-        ?.takeIf { it.isNotBlank() }
-        ?: initialProfileElement
-            ?.attr("value")
-            ?.trim()
-            ?.takeIf { it.isNotBlank() }
-
-    return AssistantBootstrapData(
-        autoSave = autoSave,
-        initialProfileKey = initialProfileKey,
-    )
 }
 
 fun String.parseThreadListHtml(): MutableMap<String, MutableList<AssistantThread>> {

@@ -92,7 +92,6 @@ fun MainScreen(
                 val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
                 nm?.cancel(PromptStreamingService.COMPLETION_NOTIFICATION_ID)
                 viewModel.restoreThread()
-                viewModel.refreshRemoteBackedState()
             }
             override fun onPause(owner: LifecycleOwner) {
                 viewModel.isAppInForeground = false
