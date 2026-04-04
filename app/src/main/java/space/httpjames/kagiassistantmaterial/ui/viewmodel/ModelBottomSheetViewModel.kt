@@ -35,7 +35,7 @@ data class ModelBottomSheetUiState(
             profiles
         } else {
             profiles.filter {
-                it.name.contains(searchQuery, ignoreCase = true) ||
+                it.name!!.contains(searchQuery, ignoreCase = true) ||
                         it.family.contains(searchQuery, ignoreCase = true)
             }
         }
@@ -94,8 +94,8 @@ class ModelBottomSheetViewModel(
     private fun hasBaseVariant(reasoningProfile: AssistantProfile, all: List<AssistantProfile>): Boolean =
         all.any {
             it.key != reasoningProfile.key &&
-                !it.name.contains("(reasoning)") &&
-                it.name.nameWithoutParentheticals() == reasoningProfile.name.nameWithoutParentheticals()
+                !it.name!!.contains("(reasoning)") &&
+                it.name!!.nameWithoutParentheticals() == reasoningProfile.name!!.nameWithoutParentheticals()
         }
 
     /**
@@ -103,11 +103,11 @@ class ModelBottomSheetViewModel(
      * counterpart, or it is a reasoning-only model.
      */
     private fun hasReasoningCapability(profile: AssistantProfile, all: List<AssistantProfile>): Boolean =
-        profile.name.contains("(reasoning)") ||
+        profile.name!!.contains("(reasoning)") ||
             all.any {
                 it.key != profile.key &&
-                    it.name.contains("(reasoning)") &&
-                    it.name.nameWithoutParentheticals() == profile.name.nameWithoutParentheticals()
+                    it.name!!.contains("(reasoning)") &&
+                    it.name!!.nameWithoutParentheticals() == profile.name.nameWithoutParentheticals()
             }
 
     fun fetchProfiles() {
@@ -116,7 +116,7 @@ class ModelBottomSheetViewModel(
                 _uiState.update { it.copy(profilesCallState = DataFetchingState.FETCHING) }
                 val allProfiles = repository.getProfiles()
                 val profiles = allProfiles.filter { p ->
-                    !p.name.contains("(reasoning)") || !hasBaseVariant(p, allProfiles)
+                    !p.name!!.contains("(reasoning)") || !hasBaseVariant(p, allProfiles)
                 }
                 val profileKeysWithReasoningCapability = allProfiles
                     .filter { hasReasoningCapability(it, allProfiles) }

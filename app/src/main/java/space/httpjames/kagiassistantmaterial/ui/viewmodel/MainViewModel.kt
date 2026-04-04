@@ -362,6 +362,10 @@ class MainViewModel(
         if (existingKey != null) {
             setActiveSession(existingKey)
             prefs.edit().putString(PreferenceKey.SAVED_THREAD_ID.key, threadId).apply()
+            threadSessions[existingKey]?.messages?.lastOrNull()?.profile?.let { profile ->
+                prefs.edit().putString(PreferenceKey.PROFILE.key, profile.key).apply()
+                _messageCenterState.update { it.copy(isSearchEnabled = profile.internetAccess) }
+            }
             return
         }
 
@@ -401,7 +405,8 @@ class MainViewModel(
                             role = AssistantThreadMessageRole.USER,
                             documents = docs,
                             branchIds = dto.branch_list,
-                            finishedGenerating = true
+                            finishedGenerating = true,
+                            profile = null,
                         ),
                         AssistantThreadMessage(
                             id = "${dto.id}.reply",
@@ -411,7 +416,8 @@ class MainViewModel(
                             branchIds = dto.branch_list,
                             finishedGenerating = true,
                             markdownContent = dto.md,
-                            metadata = parseMetadata(dto.metadata)
+                            metadata = parseMetadata(dto.metadata),
+                            profile = dto.profile
                         )
                     )
                 }
@@ -420,6 +426,11 @@ class MainViewModel(
                         messages = messages.toMutableList(),
                         callState = DataFetchingState.OK
                     )
+                }
+                val lastMessage = messages.last()
+                lastMessage.profile?.let { profile ->
+                    prefs.edit().putString(PreferenceKey.PROFILE.key, profile.key).apply()
+                    _messageCenterState.update { it.copy(isSearchEnabled = profile.internetAccess) }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -591,7 +602,7 @@ class MainViewModel(
         return profiles.any {
             it.key != profile.key &&
                     !it.modelName.contains("(reasoning)") &&
-                    it.name.nameWithoutParentheticals() == profile.name.nameWithoutParentheticals()
+                    it.name!!.nameWithoutParentheticals() == profile.name!!.nameWithoutParentheticals()
         }
     }
 
@@ -610,11 +621,11 @@ class MainViewModel(
      */
     private fun findReasoningCounterpart(profile: AssistantProfile?): AssistantProfile? {
         if (profile == null) return null
-        val baseName = profile.name.nameWithoutParentheticals()
+        val baseName = profile.name!!.nameWithoutParentheticals()
         return _messageCenterState.value.profiles.find {
             it.key != profile.key &&
                     it.modelName.contains("(reasoning)") &&
-                    it.name.nameWithoutParentheticals() == baseName
+                    it.name!!.nameWithoutParentheticals() == baseName
         }
     }
 
@@ -744,6 +755,7 @@ class MainViewModel(
             role = AssistantThreadMessageRole.USER,
             citations = emptyList(),
             branchIds = branchIdContext,
+            profile = null,
         )
         localMessages += AssistantThreadMessage(
             id = inProgressId,
@@ -753,6 +765,7 @@ class MainViewModel(
             branchIds = branchIdContext,
             markdownContent = "",
             metadata = emptyMap(),
+            profile = getProfile()
         )
         updateSession(sessionKey) { it.copy(inProgressAssistantMessageId = inProgressId) }
         updateMessagesStateFromSession(sessionKey)

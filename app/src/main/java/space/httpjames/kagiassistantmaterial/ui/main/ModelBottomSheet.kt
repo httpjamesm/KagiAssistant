@@ -132,7 +132,7 @@ fun ModelBottomSheet(
                                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     Text(
-                                        text = profile.name.nameWithoutParentheticals(),
+                                        text = profile.name!!.nameWithoutParentheticals(),
                                         style = MaterialTheme.typography.bodyLarge
                                     )
                                     if (uiState.profileKeysWithReasoningCapability.contains(profile.key)) {
@@ -211,7 +211,7 @@ fun ModelBottomSheet(
                                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     Text(
-                                        text = profile.name.nameWithoutParentheticals(),
+                                        text = profile.name!!.nameWithoutParentheticals(),
                                         style = MaterialTheme.typography.bodyLarge
                                     )
                                     if (uiState.profileKeysWithReasoningCapability.contains(profile.key)) {

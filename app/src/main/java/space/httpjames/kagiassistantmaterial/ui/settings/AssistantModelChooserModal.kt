@@ -52,7 +52,7 @@ fun AssistantModelChooserModal(
                                 }
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(option.name)
+                            Text(option.name ?: "Unknown")
                         }
                     }
                 }
