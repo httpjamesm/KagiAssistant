@@ -46,6 +46,9 @@ import space.httpjames.kagiassistantmaterial.streaming.StreamingSessionManager
 import space.httpjames.kagiassistantmaterial.toObject
 import space.httpjames.kagiassistantmaterial.ui.message.AssistantProfile
 import space.httpjames.kagiassistantmaterial.ui.message.copyToTempFile
+import space.httpjames.kagiassistantmaterial.ui.message.hasBaseVariant
+import space.httpjames.kagiassistantmaterial.ui.message.hasReasoningCapability
+import space.httpjames.kagiassistantmaterial.ui.message.isReasoningModel
 import space.httpjames.kagiassistantmaterial.ui.message.nameWithoutParentheticals
 import space.httpjames.kagiassistantmaterial.ui.message.to84x84ThumbFile
 import space.httpjames.kagiassistantmaterial.utils.DataFetchingState
@@ -429,8 +432,16 @@ class MainViewModel(
                 }
                 val lastMessage = messages.last()
                 lastMessage.profile?.let { profile ->
-                    prefs.edit().putString(PreferenceKey.PROFILE.key, profile.key).apply()
-                    _messageCenterState.update { it.copy(isSearchEnabled = profile.internetAccess) }
+                    val baseModel = findNonReasoningBaseCounterpart(profile)
+                    if (baseModel != null) {
+                        prefs.edit().putString(PreferenceKey.PROFILE.key, baseModel.key).apply()
+                    }
+                    _messageCenterState.update {
+                        it.copy(
+                            isSearchEnabled = profile.internetAccess,
+                            thinkEnabled = profile.isReasoningModel()
+                        )
+                    }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -594,17 +605,6 @@ class MainViewModel(
         return _messageCenterState.value.profiles.find { it.key == key }
     }
 
-    /**
-     * True if there is another profile with the same base name that does not contain "(reasoning)".
-     */
-    private fun hasBaseVariant(profile: AssistantProfile): Boolean {
-        val profiles = _messageCenterState.value.profiles
-        return profiles.any {
-            it.key != profile.key &&
-                    !it.modelName.contains("(reasoning)") &&
-                    it.name!!.nameWithoutParentheticals() == profile.name!!.nameWithoutParentheticals()
-        }
-    }
 
     /**
      * True when the profile is a reasoning variant and has no base variant (reasoning-only model).
@@ -612,8 +612,8 @@ class MainViewModel(
      */
     fun isReasoningOnlyModel(profile: AssistantProfile?): Boolean =
         profile != null &&
-                profile.modelName.contains("(reasoning)") &&
-                !hasBaseVariant(profile)
+                profile.normalizedName.contains("(reasoning)") &&
+                !profile.hasBaseVariant(_messageCenterState.value.profiles)
 
     /**
      * Reasoning counterpart of the selected profile (same base name, "(reasoning)" in name).
@@ -621,11 +621,20 @@ class MainViewModel(
      */
     private fun findReasoningCounterpart(profile: AssistantProfile?): AssistantProfile? {
         if (profile == null) return null
-        val baseName = profile.name!!.nameWithoutParentheticals()
+        val baseName = profile.normalizedName.nameWithoutParentheticals()
         return _messageCenterState.value.profiles.find {
             it.key != profile.key &&
-                    it.modelName.contains("(reasoning)") &&
-                    it.name!!.nameWithoutParentheticals() == baseName
+                    it.normalizedName.contains("(reasoning)") &&
+                    it.normalizedName.nameWithoutParentheticals() == baseName
+        }
+    }
+
+    private fun findNonReasoningBaseCounterpart(profile: AssistantProfile): AssistantProfile? {
+        val baseName = profile.normalizedName.nameWithoutParentheticals()
+        return _messageCenterState.value.profiles.find {
+            it.key != profile.key &&
+                    !it.normalizedName.contains("(reasoning)") &&
+                    it.normalizedName.nameWithoutParentheticals() == baseName
         }
     }
 

@@ -17,6 +17,7 @@ data class AssistantProfile(
     @SerialName("internet_access") val internetAccess: Boolean = false,
 ) {
     val key: String get() = id ?: model
+    val normalizedName: String get() = (name ?: modelName).lowercase()
 }
 
 /**
@@ -24,6 +25,27 @@ data class AssistantProfile(
  */
 fun String.nameWithoutParentheticals(): String =
     replace(Regex("""\s*\([^)]*\)"""), "").trim()
+
+fun AssistantProfile.hasBaseVariant(all: List<AssistantProfile>): Boolean {
+    return all.any {
+        it.key != this.key &&
+                !it.normalizedName.contains("(reasoning)") &&
+                it.normalizedName.nameWithoutParentheticals() == this.normalizedName.nameWithoutParentheticals()
+    }
+}
+
+fun AssistantProfile.hasReasoningCapability(all: List<AssistantProfile>): Boolean {
+    return this.normalizedName.contains("(reasoning)") ||
+            all.any {
+                it.key != this.key &&
+                        it.normalizedName.contains("(reasoning)") &&
+                        it.normalizedName.nameWithoutParentheticals() == this.normalizedName.nameWithoutParentheticals()
+            }
+}
+
+fun AssistantProfile.isReasoningModel(): Boolean {
+    return this.normalizedName.contains("(reasoning")
+}
 
 inline fun <reified T> JsonElement.toObject(): T =
     JsonLenient.decodeFromJsonElement<T>(this)
