@@ -63,6 +63,7 @@ data class AssistantThreadMessage(
     val finishedGenerating: Boolean = false,
     val markdownContent: String? = null,
     val metadata: Map<String, String> = emptyMap(),
+    val profile: AssistantProfile?,
 )
 
 data class AssistantThreadMessageDocument(
@@ -83,6 +84,7 @@ data class MessageDto(
     val md: String? = null,
     val metadata: String = "",
     val state: String = "waiting",
+    val profile: AssistantProfile,
 )
 
 @Serializable

@@ -15,6 +15,8 @@ import space.httpjames.kagiassistantmaterial.ui.message.nameWithoutParenthetical
 import space.httpjames.kagiassistantmaterial.utils.PreferenceKey
 import space.httpjames.kagiassistantmaterial.utils.DataFetchingState
 import android.content.SharedPreferences
+import space.httpjames.kagiassistantmaterial.ui.message.hasBaseVariant
+import space.httpjames.kagiassistantmaterial.ui.message.hasReasoningCapability
 
 /**
  * UI state for the ModelBottomSheet screen
@@ -35,7 +37,7 @@ data class ModelBottomSheetUiState(
             profiles
         } else {
             profiles.filter {
-                it.name.contains(searchQuery, ignoreCase = true) ||
+                it.name!!.contains(searchQuery, ignoreCase = true) ||
                         it.family.contains(searchQuery, ignoreCase = true)
             }
         }
@@ -87,39 +89,16 @@ class ModelBottomSheetViewModel(
         _uiState.update { it.copy(recentlyUsedProfileKeys = recentlyUsed) }
     }
 
-    /**
-     * True if there is another profile with the same base name (without parentheticals) that does
-     * not contain "(reasoning)". When false for a reasoning profile, it's reasoning-only (no base).
-     */
-    private fun hasBaseVariant(reasoningProfile: AssistantProfile, all: List<AssistantProfile>): Boolean =
-        all.any {
-            it.key != reasoningProfile.key &&
-                !it.name.contains("(reasoning)") &&
-                it.name.nameWithoutParentheticals() == reasoningProfile.name.nameWithoutParentheticals()
-        }
-
-    /**
-     * True if this profile should show the reasoning (lightbulb) indicator: it has a reasoning
-     * counterpart, or it is a reasoning-only model.
-     */
-    private fun hasReasoningCapability(profile: AssistantProfile, all: List<AssistantProfile>): Boolean =
-        profile.name.contains("(reasoning)") ||
-            all.any {
-                it.key != profile.key &&
-                    it.name.contains("(reasoning)") &&
-                    it.name.nameWithoutParentheticals() == profile.name.nameWithoutParentheticals()
-            }
-
     fun fetchProfiles() {
         viewModelScope.launch {
             try {
                 _uiState.update { it.copy(profilesCallState = DataFetchingState.FETCHING) }
                 val allProfiles = repository.getProfiles()
                 val profiles = allProfiles.filter { p ->
-                    !p.name.contains("(reasoning)") || !hasBaseVariant(p, allProfiles)
+                    !p.name!!.contains("(reasoning)") || !p.hasBaseVariant(allProfiles)
                 }
                 val profileKeysWithReasoningCapability = allProfiles
-                    .filter { hasReasoningCapability(it, allProfiles) }
+                    .filter { it.hasReasoningCapability(allProfiles) }
                     .map { it.key }
                     .toSet()
                 _uiState.update { it.copy(
