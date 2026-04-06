@@ -111,6 +111,11 @@ object StreamingSessionManager {
 
     fun cancelStream(streamId: String?) {
         if (streamId == null) return
+        streams[streamId]?.let { flow ->
+            scope.launch {
+                flow.emit(StreamChunk(header = "cancelled", data = "", done = true))
+            }
+        }
         jobs[streamId]?.cancel()
         jobs.remove(streamId)
         streams.remove(streamId)
