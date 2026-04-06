@@ -10,6 +10,7 @@ import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -124,7 +125,17 @@ const val STATE_UPDATE_THROTTLE_MS = 32
 class MainViewModel(
     private val repository: AssistantRepository,
     private val prefs: SharedPreferences,
-    onTokenReceived: () -> Unit = {}
+    onTokenReceived: () -> Unit = {},
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val attachmentSizeProvider: (Context, String) -> Long = { context, uri ->
+        try {
+            context.contentResolver.openFileDescriptor(Uri.parse(uri), "r")?.use {
+                it.statSize
+            } ?: 0L
+        } catch (_: Exception) {
+            0L
+        }
+    }
 ) : ViewModel() {
 
     private var _onTokenReceived: () -> Unit = onTokenReceived
@@ -312,14 +323,14 @@ class MainViewModel(
                 val pendingTraceId = session.traceId
                 removeSession(sessionKey)
                 if (temporaryThreadId != null) {
-                    viewModelScope.launch(Dispatchers.IO) {
+                    viewModelScope.launch(ioDispatcher) {
                         val result = repository.deleteChat(temporaryThreadId)
                         if (result.isFailure) {
                             result.exceptionOrNull()?.printStackTrace()
                         }
                     }
                 } else if (pendingTraceId != null) {
-                    viewModelScope.launch(Dispatchers.IO) {
+                    viewModelScope.launch(ioDispatcher) {
                         try {
                             repository.stopGeneration(pendingTraceId)
                         } catch (_: Exception) {
@@ -716,8 +727,8 @@ class MainViewModel(
 
     fun addAttachmentUri(context: Context, uri: String) {
         val totalSize =
-            _messageCenterState.value.attachmentUris.sumOf { getFileSize(context, Uri.parse(it)) }
-        val newUriSize = getFileSize(context, Uri.parse(uri))
+            _messageCenterState.value.attachmentUris.sumOf { attachmentSizeProvider(context, it) }
+        val newUriSize = attachmentSizeProvider(context, uri)
 
         if (totalSize + newUriSize > 16 * 1024 * 1024) { // 16 MB
             _messageCenterState.update { it.copy(showAttachmentSizeLimitWarning = true) }
@@ -794,7 +805,7 @@ class MainViewModel(
 
         val traceId = session.traceId
         if (traceId != null) {
-            viewModelScope.launch(Dispatchers.IO) {
+            viewModelScope.launch(ioDispatcher) {
                 try {
                     repository.stopGeneration(traceId)
                 } catch (_: Exception) {
