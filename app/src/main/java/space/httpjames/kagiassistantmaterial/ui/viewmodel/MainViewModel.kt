@@ -366,8 +366,15 @@ class MainViewModel(
             setActiveSession(existingKey)
             prefs.edit().putString(PreferenceKey.SAVED_THREAD_ID.key, threadId).apply()
             threadSessions[existingKey]?.messages?.lastOrNull()?.profile?.let { profile ->
-                prefs.edit().putString(PreferenceKey.PROFILE.key, profile.key).apply()
-                _messageCenterState.update { it.copy(isSearchEnabled = profile.internetAccess) }
+                if (profile.isReasoningModel()) {
+                    val baseModel = findNonReasoningBaseCounterpart(profile)
+                    if (baseModel != null) {
+                        prefs.edit().putString(PreferenceKey.PROFILE.key, baseModel.key).apply()
+                    }
+                } else {
+                    prefs.edit().putString(PreferenceKey.PROFILE.key, profile.key).apply()
+                }
+                _messageCenterState.update { it.copy(isSearchEnabled = profile.internetAccess, thinkEnabled = profile.isReasoningModel()) }
             }
             return
         }
@@ -432,9 +439,13 @@ class MainViewModel(
                 }
                 val lastMessage = messages.last()
                 lastMessage.profile?.let { profile ->
-                    val baseModel = findNonReasoningBaseCounterpart(profile)
-                    if (baseModel != null) {
-                        prefs.edit().putString(PreferenceKey.PROFILE.key, baseModel.key).apply()
+                    if (profile.isReasoningModel()) {
+                        val baseModel = findNonReasoningBaseCounterpart(profile)
+                        if (baseModel != null) {
+                            prefs.edit().putString(PreferenceKey.PROFILE.key, baseModel.key).apply()
+                        }
+                    } else {
+                        prefs.edit().putString(PreferenceKey.PROFILE.key, profile.key).apply()
                     }
                     _messageCenterState.update {
                         it.copy(
@@ -590,6 +601,12 @@ class MainViewModel(
 
     fun toggleSearch() {
         _messageCenterState.update { it.copy(isSearchEnabled = !it.isSearchEnabled) }
+    }
+
+    fun setSearchEnabled(enabled: Boolean) {
+        _messageCenterState.update { current ->
+            if (current.isSearchEnabled == enabled) current else current.copy(isSearchEnabled = enabled)
+        }
     }
 
     fun openModelBottomSheet() {
@@ -749,6 +766,13 @@ class MainViewModel(
             tempId
         }
         val session = threadSessions[sessionKey] ?: return
+        val messageCenterState = _messageCenterState.value
+        val draftText = messageCenterState.text
+        val trimmedDraftText = draftText.trim()
+        val selectedProfile = getProfile()
+        val searchEnabled = messageCenterState.isSearchEnabled
+        val attachmentUris = messageCenterState.attachmentUris
+        val editingMessageId = getEditingMessageId()
         var messageId = UUID.randomUUID().toString()
         val inProgressId = "$messageId.reply"
 
@@ -760,7 +784,7 @@ class MainViewModel(
 
         localMessages += AssistantThreadMessage(
             id = messageId,
-            content = _messageCenterState.value.text,
+            content = draftText,
             role = AssistantThreadMessageRole.USER,
             citations = emptyList(),
             branchIds = branchIdContext,
@@ -774,10 +798,9 @@ class MainViewModel(
             branchIds = branchIdContext,
             markdownContent = "",
             metadata = emptyMap(),
-            profile = getProfile()
+            profile = selectedProfile
         )
         updateSession(sessionKey) { it.copy(inProgressAssistantMessageId = inProgressId) }
-        updateMessagesStateFromSession(sessionKey)
 
         val streamingJob = viewModelScope.launch(Dispatchers.IO) {
             var lastStateUpdateTime = 0L
@@ -787,7 +810,7 @@ class MainViewModel(
             val focus = KagiPromptRequestFocus(
                 session.threadId,
                 latestAssistantMessageId,
-                _messageCenterState.value.text.trim(),
+                trimmedDraftText,
                 branchId,
             )
 
@@ -810,12 +833,12 @@ class MainViewModel(
                 focus,
                 KagiPromptRequestProfile(
                     effectiveProfile?.id,
-                    _messageCenterState.value.isSearchEnabled,
+                    searchEnabled,
                     null,
                     effectiveProfile?.model ?: "",
                     false,
                 ),
-                if (getEditingMessageId().isNullOrBlank()) null else listOf(
+                if (editingMessageId.isNullOrBlank()) null else listOf(
                     KagiPromptRequestThreads(
                         listOf(),
                         saved = saved,
@@ -825,13 +848,21 @@ class MainViewModel(
             )
 
             val url =
-                if (!getEditingMessageId().isNullOrBlank()) "https://kagi.com/assistant/message_regenerate" else "https://kagi.com/assistant/prompt"
+                if (!editingMessageId.isNullOrBlank()) "https://kagi.com/assistant/message_regenerate" else "https://kagi.com/assistant/prompt"
 
             setEditingMessageId(null)
 
             val jsonString = Json.encodeToString(KagiPromptRequest.serializer(), requestBody)
 
             var currentInProgressId = inProgressId
+
+            fun updateSessionWithoutPublishing(
+                targetSessionKey: String,
+                update: (ThreadSession) -> ThreadSession
+            ) {
+                val currentSession = threadSessions[targetSessionKey] ?: return
+                threadSessions[targetSessionKey] = update(currentSession)
+            }
 
             fun updateMessageById(
                 targetId: String,
@@ -947,7 +978,9 @@ class MainViewModel(
                             }
                         }
 
-                        updateSession(activeSessionKey) { it.copy(inProgressAssistantMessageId = newInProgressId) }
+                        updateSessionWithoutPublishing(activeSessionKey) {
+                            it.copy(inProgressAssistantMessageId = newInProgressId)
+                        }
                         maybeUpdateState(force = true)
                     }
 
@@ -986,9 +1019,9 @@ class MainViewModel(
 
             var streamFiles: List<MultipartAssistantPromptFile>? = null
 
-            if (_messageCenterState.value.attachmentUris.isNotEmpty()) {
+            if (attachmentUris.isNotEmpty()) {
                 val files = withContext(Dispatchers.IO) {
-                    _messageCenterState.value.attachmentUris.mapNotNull { uriStr ->
+                    attachmentUris.mapNotNull { uriStr ->
                         try {
                             val uri = uriStr.toUri()
                             val mimeType =
@@ -1013,19 +1046,18 @@ class MainViewModel(
                     }
                 }
 
-                files.forEach { promptFile ->
-                    updateMessageById(messageId) { msg ->
-                        val fileName = promptFile.file.name
-                        msg.copy(
-                            documents = msg.documents + AssistantThreadMessageDocument(
-                                id = UUID.randomUUID().toString(),
-                                name = fileName,
-                                mime = promptFile.mime,
-                                data =
-                                    promptFile.thumbnail?.let { BitmapFactory.decodeFile(it.absolutePath) }
+                val documents = files.map { promptFile ->
+                    AssistantThreadMessageDocument(
+                        id = UUID.randomUUID().toString(),
+                        name = promptFile.file.name,
+                        mime = promptFile.mime,
+                        data = promptFile.thumbnail?.let { BitmapFactory.decodeFile(it.absolutePath) }
+                    )
+                }
 
-                            )
-                        )
+                if (documents.isNotEmpty()) {
+                    updateMessageById(messageId) { msg ->
+                        msg.copy(documents = msg.documents + documents)
                     }
                 }
 

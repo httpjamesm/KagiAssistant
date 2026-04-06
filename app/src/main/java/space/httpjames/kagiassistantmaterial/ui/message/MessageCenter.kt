@@ -121,8 +121,13 @@ fun MessageCenter(
         onDispose { lifecycle.removeObserver(observer) }
     }
 
-    // set the web search default based on the profile's returned default
-    LaunchedEffect(viewModel.getProfile()) {
+    // Only apply the model's default internet setting when composing a fresh prompt.
+    // Existing threads restore their own last-used state and should not be overridden here.
+    LaunchedEffect(viewModel.getProfile(), threadId, messagesState.messages.isEmpty()) {
+        if (threadId != null || messagesState.messages.isNotEmpty()) {
+            return@LaunchedEffect
+        }
+
         val autoToggleInternet = prefs.getBoolean(
             PreferenceKey.AUTO_TOGGLE_INTERNET.key,
             PreferenceKey.DEFAULT_AUTO_TOGGLE_INTERNET
@@ -134,7 +139,7 @@ fun MessageCenter(
         val internetAccess = viewModel.getProfile()?.internetAccess ?: return@LaunchedEffect
 
         if (internetAccess != messageCenterState.isSearchEnabled) {
-            viewModel.toggleSearch()
+            viewModel.setSearchEnabled(internetAccess)
         }
     }
 
