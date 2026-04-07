@@ -50,6 +50,9 @@ class PromptStreamingService : Service() {
                         StreamingSessionManager.startStream(streamId, request)
                         monitorStream(streamId)
                         updateTypingNotification()
+                    } else if (!StreamingSessionManager.hasActiveStreams() && monitorJobs.isEmpty()) {
+                        stopForeground(STOP_FOREGROUND_REMOVE)
+                        stopSelf()
                     }
                 }
             }

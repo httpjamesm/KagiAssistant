@@ -35,7 +35,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -45,17 +44,13 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.distinctUntilChanged
 import org.jsoup.Jsoup
 import space.httpjames.kagiassistantmaterial.AssistantThread
 import space.httpjames.kagiassistantmaterial.ThreadSearchResult
 import space.httpjames.kagiassistantmaterial.utils.DataFetchingState
 import java.text.NumberFormat
 
-@OptIn(ExperimentalMaterial3Api::class, FlowPreview::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ThreadsDrawerSheet(
     callState: DataFetchingState,
@@ -70,23 +65,13 @@ fun ThreadsDrawerSheet(
     hasMore: Boolean = false,
     isLoadingMore: Boolean = false,
     onLoadMore: () -> Unit = {},
+    searchQuery: String = "",
     searchResults: List<ThreadSearchResult>? = null,
     isSearching: Boolean = false,
     isLoadingSearchPages: Boolean = false,
     onSearch: (String) -> Unit = {},
 ) {
-    var searchQuery by remember { mutableStateOf("") }
     var active by remember { mutableStateOf(false) }
-
-    // Debounced server-side search
-    LaunchedEffect(Unit) {
-        snapshotFlow { searchQuery }
-            .debounce(300)
-            .distinctUntilChanged()
-            .collectLatest { query ->
-                onSearch(query)
-            }
-    }
 
     // Display threads: show all until server search results are available, then filter to matches
     val displayThreads = remember(searchQuery, threads, searchResults) {
@@ -126,7 +111,7 @@ fun ThreadsDrawerSheet(
                 .fillMaxWidth()
                 .padding(horizontal = if (active) 0.dp else 16.dp, vertical = 8.dp),
             query = searchQuery,
-            onQueryChange = { searchQuery = it },
+            onQueryChange = onSearch,
             onSearch = { active = false },
             active = active,
             onActiveChange = { active = it },

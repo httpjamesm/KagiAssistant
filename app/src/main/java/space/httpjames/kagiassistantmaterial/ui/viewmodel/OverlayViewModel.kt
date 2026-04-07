@@ -15,6 +15,9 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -86,6 +89,7 @@ class OverlayViewModel(
     val uiState: StateFlow<OverlayUiState> = _uiState.asStateFlow()
 
     private var activeStreamId: String? = null
+    private var sendJob: Job? = null
 
     private val ttsManager = TtsManager(
         context = context,
@@ -197,13 +201,58 @@ class OverlayViewModel(
         }
     }
 
+    private suspend fun ensureProfilesLoaded(): List<AssistantProfile> {
+        val existingProfiles = _uiState.value.profiles
+        if (existingProfiles.isNotEmpty()) {
+            return existingProfiles
+        }
+
+        return try {
+            assistantClient.getProfiles().also { profiles ->
+                _uiState.update { it.copy(profiles = profiles) }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        }
+    }
+
+    private fun cancelActiveStream() {
+        StreamingSessionManager.cancelStream(activeStreamId)
+        activeStreamId = null
+    }
+
+    fun cancelActiveWork() {
+        sendJob?.cancel()
+        sendJob = null
+        cancelActiveStream()
+        speechRecognizer.stopListening()
+        ttsManager.stop()
+        _uiState.update {
+            it.copy(
+                userMessage = "",
+                assistantMessage = "",
+                assistantMessageMd = "",
+                currentThreadId = null,
+                lastAssistantMessageId = null,
+                isListening = false,
+                isSpeaking = false,
+                isWaitingForMessageFirstToken = false,
+                assistantDone = true
+            )
+        }
+    }
+
     fun sendMessage() {
         val userMessage = _uiState.value.text
         val screenshot = if (_uiState.value.screenshotAttached) _uiState.value.screenshot else null
 
         _uiState.update { it.copy(userMessage = userMessage) }
 
-        viewModelScope.launch {
+        sendJob?.cancel()
+        cancelActiveStream()
+        sendJob = viewModelScope.launch {
+            val profiles = ensureProfilesLoaded()
             val focus = KagiPromptRequestFocus(
                 _uiState.value.currentThreadId,
                 _uiState.value.lastAssistantMessageId,
@@ -217,7 +266,7 @@ class OverlayViewModel(
             )
 
             val profile =
-                _uiState.value.profiles.firstOrNull { it.key == selectedAssistantModelKey }
+                profiles.firstOrNull { it.key == selectedAssistantModelKey }
 
             if (profile == null) {
                 _uiState.update { it.copy(assistantMessage = "Sorry, please try again later.") }
@@ -354,20 +403,29 @@ class OverlayViewModel(
                     chunk.done
                 }
 
+                activeStreamId = null
+
                 _uiState.update {
                     it.copy(
                         screenshotAttached = false,
                         text = ""
                     )
                 }
+            } catch (_: CancellationException) {
+                activeStreamId = null
             } catch (e: Exception) {
                 e.printStackTrace()
+                activeStreamId = null
                 _uiState.update {
                     it.copy(
                         assistantDone = true,
                         isWaitingForMessageFirstToken = false,
                         assistantMessage = "Sorry, please try again later."
                     )
+                }
+            } finally {
+                if (sendJob === currentCoroutineContext()[Job]) {
+                    sendJob = null
                 }
             }
         }
@@ -381,12 +439,17 @@ class OverlayViewModel(
     }
 
     fun reset() {
+        cancelActiveWork()
         _uiState.update {
             it.copy(
                 text = "",
                 userMessage = "",
                 assistantMessage = "",
-                currentThreadId = null
+                currentThreadId = null,
+                lastAssistantMessageId = null,
+                assistantMessageMd = "",
+                screenshotAttached = false,
+                isTypingMode = false
             )
         }
     }
@@ -407,8 +470,7 @@ class OverlayViewModel(
 
     override fun onCleared() {
         super.onCleared()
-        _uiState.update { it.copy(isSpeaking = false) }
-        speechRecognizer.stopListening()
+        cancelActiveWork()
         speechRecognizer.destroy()
         ttsManager.release()
     }

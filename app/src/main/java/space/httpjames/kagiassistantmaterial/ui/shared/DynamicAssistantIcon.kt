@@ -3,7 +3,6 @@ package space.httpjames.kagiassistantmaterial.ui.shared
 import android.content.Context
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -13,6 +12,7 @@ import coil.decode.SvgDecoder
 import coil.request.ImageRequest
 import coil.size.Scale
 import space.httpjames.kagiassistantmaterial.R
+import space.httpjames.kagiassistantmaterial.utils.PreferenceKey
 import java.io.File
 
 @Composable
@@ -20,16 +20,12 @@ fun DynamicAssistantIcon(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val companionKey = remember(context) {
-        context.getSharedPreferences("assistant_prefs", Context.MODE_PRIVATE)
-            .getString("companion", null)
-    }
-    val svgPath = remember(companionKey) {
-        companionKey?.let { key ->
-            File(context.cacheDir, "companion_$key.svg")
-                .takeIf { it.exists() }
-                ?.absolutePath
-        }
+    val prefs = context.getSharedPreferences("assistant_prefs", Context.MODE_PRIVATE)
+    val companionKey = rememberStringPreference(prefs, PreferenceKey.COMPANION.key)
+    val svgPath = companionKey?.let { key ->
+        File(context.cacheDir, "companion_$key.svg")
+            .takeIf { it.exists() }
+            ?.absolutePath
     }
 
     if (svgPath != null) {

@@ -48,7 +48,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import space.httpjames.kagiassistantmaterial.AssistantClient
 import space.httpjames.kagiassistantmaterial.R
@@ -75,8 +77,6 @@ fun LandingScreen(onLoginSuccess: (String) -> Unit = {}) {
     val uiState by viewModel.uiState.collectAsState()
 
     val coroutineScope = rememberCoroutineScope()
-
-    var waitingOnAuth: Boolean by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -112,11 +112,10 @@ fun LandingScreen(onLoginSuccess: (String) -> Unit = {}) {
                 modifier = Modifier.padding(bottom = 30.dp, start = 24.dp, end = 24.dp)
             ) {
                 Button(
-                    enabled = !waitingOnAuth,
+                    enabled = !uiState.isLoading,
                     onClick = {
                         coroutineScope.launch {
                             val data = viewModel.startCeremony()
-                            waitingOnAuth = true
                             if (data.isSuccess) {
                                 val token = data.getOrNull()
                                 if (token != null) {
@@ -124,8 +123,6 @@ fun LandingScreen(onLoginSuccess: (String) -> Unit = {}) {
                                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
                                     context.startActivity(intent)
                                 }
-                            } else {
-                                waitingOnAuth = false
                             }
                         }
                     },
@@ -133,7 +130,7 @@ fun LandingScreen(onLoginSuccess: (String) -> Unit = {}) {
                         .fillMaxWidth()
                         .height(96.dp)
                 ) {
-                    if (waitingOnAuth) {
+                    if (uiState.isLoading) {
                         CircularProgressIndicator()
                     } else {
                         Text("Sign in", style = MaterialTheme.typography.titleMedium)
@@ -149,16 +146,19 @@ fun LandingScreen(onLoginSuccess: (String) -> Unit = {}) {
         }
     }
 
-    LaunchedEffect(Unit) {
-        while (true) {
+    LaunchedEffect(uiState.authSessionDetails) {
+        if (uiState.authSessionDetails == null) return@LaunchedEffect
+        while (currentCoroutineContext().isActive) {
             delay(1_000L)          // wait 1 s
             val token = viewModel.checkCeremony()
             if (token != null) {
                 onLoginSuccess(token)
                 break
             }
+            if (!viewModel.uiState.value.isLoading) {
+                break
+            }
         }
-
     }
 }
 

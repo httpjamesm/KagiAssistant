@@ -43,7 +43,7 @@ class LandingViewModel(
                 _uiState.update {
                     it.copy(
                         authSessionDetails = sessionDetails,
-                        isLoading = false
+                        isLoading = true
                     )
                 }
                 Result.success(sessionDetails?.token ?: "")
@@ -91,11 +91,25 @@ class LandingViewModel(
                     }
                     return token
                 }
+            } else {
+                val errorMessage = checkResult.exceptionOrNull()?.message
+                if (errorMessage == "Not authorized yet") {
+                    return null
+                }
+                _uiState.update {
+                    it.copy(
+                        authSessionDetails = null,
+                        isLoading = false,
+                        errorMessage = errorMessage
+                    )
+                }
             }
             null
         } catch (e: Exception) {
             _uiState.update {
                 it.copy(
+                    authSessionDetails = null,
+                    isLoading = false,
                     errorMessage = e.message
                 )
             }

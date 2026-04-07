@@ -44,6 +44,7 @@ import space.httpjames.kagiassistantmaterial.Screens
 import space.httpjames.kagiassistantmaterial.ui.chat.ChatArea
 import space.httpjames.kagiassistantmaterial.ui.message.MessageCenter
 import space.httpjames.kagiassistantmaterial.ui.shared.Header
+import space.httpjames.kagiassistantmaterial.ui.shared.rememberBooleanPreference
 import android.app.NotificationManager
 import android.content.Context
 import space.httpjames.kagiassistantmaterial.streaming.PromptStreamingService
@@ -78,6 +79,11 @@ fun MainScreen(
     val threadsState by viewModel.threadsState.collectAsState()
     val messagesState by viewModel.messagesState.collectAsState()
     val generatingThreads by viewModel.generatingThreadsState.collectAsState()
+    val stickyScrollEnabled = rememberBooleanPreference(
+        prefs = prefs,
+        key = PreferenceKey.STICKY_SCROLL.key,
+        defaultValue = PreferenceKey.DEFAULT_STICKY_SCROLL
+    )
 
     val scope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(DrawerValue.Closed)
@@ -182,6 +188,7 @@ fun MainScreen(
                 isLoadingMore = threadsState.isLoadingMore,
                 onLoadMore = { viewModel.loadMoreThreads() },
                 searchResults = threadsState.searchResults,
+                searchQuery = threadsState.searchQuery,
                 isSearching = threadsState.isSearching,
                 isLoadingSearchPages = threadsState.isLoadingSearchPages,
                 onSearch = { viewModel.searchThreads(it) },
@@ -247,10 +254,7 @@ fun MainScreen(
                     },
                     isTemporaryChat = messagesState.isTemporaryChat,
                     isGenerating = messagesState.inProgressAssistantMessageId != null,
-                    stickyScrollEnabled = prefs.getBoolean(
-                        PreferenceKey.STICKY_SCROLL.key,
-                        PreferenceKey.DEFAULT_STICKY_SCROLL
-                    )
+                    stickyScrollEnabled = stickyScrollEnabled
                 )
                 MessageCenter(
                     threadId = threadsState.currentThreadId,
