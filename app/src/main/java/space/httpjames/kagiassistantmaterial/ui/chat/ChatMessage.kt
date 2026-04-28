@@ -59,6 +59,7 @@ import org.jsoup.Jsoup
 import space.httpjames.kagiassistantmaterial.AssistantThreadMessageDocument
 import space.httpjames.kagiassistantmaterial.AssistantThreadMessageRole
 import space.httpjames.kagiassistantmaterial.Citation
+import space.httpjames.kagiassistantmaterial.ui.message.AttachmentPreview
 import space.httpjames.kagiassistantmaterial.ui.message.ShimmeringMessagePlaceholder
 import space.httpjames.kagiassistantmaterial.ui.shared.DynamicAssistantIcon
 import java.net.URI
@@ -418,7 +419,13 @@ fun ChatMessage(
                     Spacer(modifier = Modifier.weight(1f))
                     key(documents) {
                         documents.forEach { document ->
-                            if (document.data != null) {
+                            if (document.uri != null) {
+                                AttachmentPreview(
+                                    uri = document.uri,
+                                    onRemove = {},
+                                    readOnly = true
+                                )
+                            } else if (document.data != null) {
                                 Surface(
                                     modifier = Modifier
                                         .size(84.dp)

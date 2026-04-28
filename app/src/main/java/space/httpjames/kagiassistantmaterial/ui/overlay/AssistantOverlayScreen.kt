@@ -50,6 +50,7 @@ import kotlinx.coroutines.launch
 import space.httpjames.kagiassistantmaterial.AssistantClient
 import space.httpjames.kagiassistantmaterial.MainActivity
 import space.httpjames.kagiassistantmaterial.ui.assist.OverlayActionButton
+import space.httpjames.kagiassistantmaterial.ui.shared.rememberBooleanPreference
 import space.httpjames.kagiassistantmaterial.ui.viewmodel.OverlayViewModel
 import space.httpjames.kagiassistantmaterial.ui.viewmodel.OverlayViewModelFactory
 import space.httpjames.kagiassistantmaterial.utils.PreferenceKey
@@ -73,6 +74,11 @@ fun AssistantOverlayScreen(
     )
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("assistant_prefs", Context.MODE_PRIVATE) }
+    val useMiniOverlay = rememberBooleanPreference(
+        prefs = prefs,
+        key = PreferenceKey.USE_MINI_OVERLAY.key,
+        defaultValue = PreferenceKey.DEFAULT_USE_MINI_OVERLAY
+    )
     var visible by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
     val viewModel: OverlayViewModel = viewModel(
@@ -89,6 +95,7 @@ fun AssistantOverlayScreen(
             localFocusContext.clearFocus()
             viewModel.saveThreadId()
             viewModel.saveText()
+            viewModel.cancelActiveWork()
             awaitFrame()
             context.startActivity(
                 Intent(context, MainActivity::class.java).apply {
@@ -101,11 +108,7 @@ fun AssistantOverlayScreen(
         }
     }
 
-    LaunchedEffect(Unit) {
-        val useMiniOverlay = prefs.getBoolean(
-            PreferenceKey.USE_MINI_OVERLAY.key,
-            PreferenceKey.DEFAULT_USE_MINI_OVERLAY
-        )
+    LaunchedEffect(useMiniOverlay) {
         if (useMiniOverlay) {
             visible = true
         } else {
@@ -122,6 +125,7 @@ fun AssistantOverlayScreen(
 
     LaunchedEffect(Unit) {
         reinvokeFlow.collect {
+            viewModel.reset()
             viewModel.restartFlow()
             localFocusContext.clearFocus()
         }
@@ -149,6 +153,7 @@ fun AssistantOverlayScreen(
                     indication = null,
                     onClick = {
                         coroutineScope.launch {
+                            viewModel.cancelActiveWork()
                             visible = false
                             awaitFrame()
                             onDismiss()
@@ -192,4 +197,3 @@ fun AssistantOverlayScreen(
         }
     }
 }
-

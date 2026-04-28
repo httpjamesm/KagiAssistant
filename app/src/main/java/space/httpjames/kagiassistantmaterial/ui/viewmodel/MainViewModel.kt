@@ -9,8 +9,11 @@ import android.webkit.MimeTypeMap
 import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -46,6 +49,7 @@ import space.httpjames.kagiassistantmaterial.streaming.StreamingSessionManager
 import space.httpjames.kagiassistantmaterial.toObject
 import space.httpjames.kagiassistantmaterial.ui.message.AssistantProfile
 import space.httpjames.kagiassistantmaterial.ui.message.copyToTempFile
+import space.httpjames.kagiassistantmaterial.ui.message.getFileName
 import space.httpjames.kagiassistantmaterial.ui.message.hasBaseVariant
 import space.httpjames.kagiassistantmaterial.ui.message.hasReasoningCapability
 import space.httpjames.kagiassistantmaterial.ui.message.isReasoningModel
@@ -82,7 +86,6 @@ data class MessagesUiState(
     val callState: DataFetchingState = DataFetchingState.OK,
     val messages: List<AssistantThreadMessage> = emptyList(),
     val currentThreadTitle: String? = null,
-    val editingMessageId: String? = null,
     val isTemporaryChat: Boolean = false,
     val inProgressAssistantMessageId: String? = null
 )
@@ -94,6 +97,7 @@ private data class ThreadSession(
     val callState: DataFetchingState = DataFetchingState.OK,
     val isTemporaryChat: Boolean = false,
     val inProgressAssistantMessageId: String? = null,
+    val editingMessageId: String? = null,
     val streamingJob: Job? = null,
     val traceId: String? = null,
     val activeStreamId: String? = null
@@ -122,7 +126,17 @@ const val STATE_UPDATE_THROTTLE_MS = 32
 class MainViewModel(
     private val repository: AssistantRepository,
     private val prefs: SharedPreferences,
-    onTokenReceived: () -> Unit = {}
+    onTokenReceived: () -> Unit = {},
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val attachmentSizeProvider: (Context, String) -> Long = { context, uri ->
+        try {
+            context.contentResolver.openFileDescriptor(Uri.parse(uri), "r")?.use {
+                it.statSize
+            } ?: 0L
+        } catch (_: Exception) {
+            0L
+        }
+    }
 ) : ViewModel() {
 
     private var _onTokenReceived: () -> Unit = onTokenReceived
@@ -239,6 +253,7 @@ class MainViewModel(
         }
 
         searchJob = viewModelScope.launch {
+            delay(300)
             _threadsState.update { it.copy(isSearching = true, isLoadingSearchPages = false) }
             try {
                 // Fire search API call immediately
@@ -272,6 +287,7 @@ class MainViewModel(
                 }
 
                 _threadsState.update { it.copy(isLoadingSearchPages = false) }
+            } catch (_: CancellationException) {
             } catch (e: Exception) {
                 e.printStackTrace()
                 _threadsState.update {
@@ -291,10 +307,7 @@ class MainViewModel(
             val result = repository.deleteChat(threadId)
             if (result.isSuccess) {
                 threadSessions.entries.firstOrNull { it.value.threadId == threadId }?.let { entry ->
-                    entry.value.streamingJob?.cancel()
-                    StreamingSessionManager.cancelStream(entry.value.activeStreamId)
-                    threadSessions.remove(entry.key)
-                    updateGeneratingThreadsState()
+                    removeSession(entry.key)
                 }
                 newChat()
             } else {
@@ -304,12 +317,33 @@ class MainViewModel(
     }
 
     fun newChat() {
-        val currentSession = currentSessionKey?.let { threadSessions[it] }
-        if (currentSession?.isTemporaryChat == true) {
-            updateSession(currentSessionKey) { it.copy(isTemporaryChat = false) }
-            deleteChat()
-            return
+        currentSessionKey?.let { sessionKey ->
+            val session = threadSessions[sessionKey]
+            if (session?.isTemporaryChat == true) {
+                val temporaryThreadId = session.threadId
+                val pendingTraceId = session.traceId
+                removeSession(sessionKey)
+                if (temporaryThreadId != null) {
+                    viewModelScope.launch(ioDispatcher) {
+                        val result = repository.deleteChat(temporaryThreadId)
+                        if (result.isFailure) {
+                            result.exceptionOrNull()?.printStackTrace()
+                        }
+                    }
+                } else if (pendingTraceId != null) {
+                    viewModelScope.launch(ioDispatcher) {
+                        try {
+                            repository.stopGeneration(pendingTraceId)
+                        } catch (_: Exception) {
+                        }
+                    }
+                }
+            }
         }
+        openFreshChat()
+    }
+
+    private fun openFreshChat() {
         val tempId = "temp:${UUID.randomUUID()}"
         threadSessions[tempId] = ThreadSession(threadId = null)
         updateGeneratingThreadsState()
@@ -347,14 +381,9 @@ class MainViewModel(
 
             if (sessionKey != null) {
                 val trimmedMessages = currentMessages.subList(0, index).toMutableList()
-                updateSession(sessionKey) { it.copy(messages = trimmedMessages) }
-            }
-
-            _messagesState.update {
-                it.copy(
-                    editingMessageId = messageId,
-                    messages = currentMessages.subList(0, index)
-                )
+                updateSession(sessionKey) {
+                    it.copy(messages = trimmedMessages, editingMessageId = messageId)
+                }
             }
             _messageCenterState.update { it.copy(text = oldContent) }
         }
@@ -473,7 +502,7 @@ class MainViewModel(
     // ========== Message state getters/setters ==========
 
     fun setEditingMessageId(id: String?) {
-        _messagesState.update { it.copy(editingMessageId = id) }
+        updateSession(currentSessionKey) { it.copy(editingMessageId = id) }
     }
 
     private var activeSessionKey: String? = null
@@ -552,7 +581,28 @@ class MainViewModel(
         return sessionKey == activeSessionKey && session.inProgressAssistantMessageId != null
     }
 
-    fun getEditingMessageId(): String? = _messagesState.value.editingMessageId
+    private fun getEditingMessageId(): String? =
+        currentSessionKey?.let { threadSessions[it]?.editingMessageId }
+
+    private fun removeSession(sessionKey: String) {
+        val removed = threadSessions.remove(sessionKey) ?: return
+        removed.streamingJob?.cancel()
+        StreamingSessionManager.cancelStream(removed.activeStreamId)
+        if (activeSessionKey == sessionKey) {
+            activeSessionKey = null
+            _threadsState.update { it.copy(currentThreadId = null) }
+            _messagesState.update {
+                it.copy(
+                    messages = emptyList(),
+                    currentThreadTitle = null,
+                    callState = DataFetchingState.OK,
+                    isTemporaryChat = false,
+                    inProgressAssistantMessageId = null
+                )
+            }
+        }
+        updateGeneratingThreadsState()
+    }
 
     private fun updateGeneratingThreadsState() {
         _generatingThreadsState.value = threadSessions.values
@@ -678,8 +728,8 @@ class MainViewModel(
 
     fun addAttachmentUri(context: Context, uri: String) {
         val totalSize =
-            _messageCenterState.value.attachmentUris.sumOf { getFileSize(context, Uri.parse(it)) }
-        val newUriSize = getFileSize(context, Uri.parse(uri))
+            _messageCenterState.value.attachmentUris.sumOf { attachmentSizeProvider(context, it) }
+        val newUriSize = attachmentSizeProvider(context, uri)
 
         if (totalSize + newUriSize > 16 * 1024 * 1024) { // 16 MB
             _messageCenterState.update { it.copy(showAttachmentSizeLimitWarning = true) }
@@ -742,17 +792,25 @@ class MainViewModel(
     fun stopGeneration() {
         val sessionKey = currentSessionKey ?: return
         val session = threadSessions[sessionKey] ?: return
-        val traceId = session.traceId ?: return
 
         session.streamingJob?.cancel()
+        StreamingSessionManager.cancelStream(session.activeStreamId)
         updateSession(sessionKey) {
-            it.copy(inProgressAssistantMessageId = null, traceId = null, streamingJob = null)
+            it.copy(
+                inProgressAssistantMessageId = null,
+                traceId = null,
+                streamingJob = null,
+                activeStreamId = null
+            )
         }
 
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                repository.stopGeneration(traceId)
-            } catch (_: Exception) {
+        val traceId = session.traceId
+        if (traceId != null) {
+            viewModelScope.launch(ioDispatcher) {
+                try {
+                    repository.stopGeneration(traceId)
+                } catch (_: Exception) {
+                }
             }
         }
     }
@@ -772,6 +830,16 @@ class MainViewModel(
         val selectedProfile = getProfile()
         val searchEnabled = messageCenterState.isSearchEnabled
         val attachmentUris = messageCenterState.attachmentUris
+        val optimisticDocuments = attachmentUris.map { uriStr ->
+            val uri = uriStr.toUri()
+            AssistantThreadMessageDocument(
+                id = UUID.randomUUID().toString(),
+                name = context.getFileName(uri) ?: uri.lastPathSegment ?: "Attachment",
+                mime = context.contentResolver.getType(uri) ?: "application/octet-stream",
+                data = null,
+                uri = uriStr
+            )
+        }
         val editingMessageId = getEditingMessageId()
         var messageId = UUID.randomUUID().toString()
         val inProgressId = "$messageId.reply"
@@ -787,6 +855,7 @@ class MainViewModel(
             content = draftText,
             role = AssistantThreadMessageRole.USER,
             citations = emptyList(),
+            documents = optimisticDocuments,
             branchIds = branchIdContext,
             profile = null,
         )
@@ -801,9 +870,12 @@ class MainViewModel(
             profile = selectedProfile
         )
         updateSession(sessionKey) { it.copy(inProgressAssistantMessageId = inProgressId) }
+        _messageCenterState.update { it.copy(text = "", attachmentUris = emptyList()) }
+        saveText("")
 
-        val streamingJob = viewModelScope.launch(Dispatchers.IO) {
+        val streamingJob = viewModelScope.launch {
             var lastStateUpdateTime = 0L
+            var lastHapticTime = 0L
             var activeSessionKey = sessionKey
             val branchId = localMessages.lastOrNull()?.branchIds?.lastOrNull()
 
@@ -813,8 +885,6 @@ class MainViewModel(
                 trimmedDraftText,
                 branchId,
             )
-
-            onMessageCenterTextChanged("")
 
             var autoSave = true
             try {
@@ -883,13 +953,20 @@ class MainViewModel(
                 val currentTime = System.currentTimeMillis()
                 if (force || currentTime - lastStateUpdateTime >= STATE_UPDATE_THROTTLE_MS) {
                     lastStateUpdateTime = currentTime
-                    withContext(Dispatchers.Main) {
-                        updateMessagesStateFromSession(activeSessionKey)
-                        if (shouldPlayTokenHaptic(activeSessionKey)) {
-                            _onTokenReceived()
-                        }
-                    }
+                    updateMessagesStateFromSession(activeSessionKey)
                 }
+            }
+
+            // Token haptics are decoupled from the UI-state throttle so that
+            // metadata events (e.g. new_message.json with force = true) cannot
+            // mistakenly fire a token haptic, and so that haptics are scheduled
+            // on their own cadence regardless of how often state is published.
+            fun maybeFireTokenHaptic() {
+                if (!shouldPlayTokenHaptic(activeSessionKey)) return
+                val now = System.currentTimeMillis()
+                if (now - lastHapticTime < STATE_UPDATE_THROTTLE_MS) return
+                lastHapticTime = now
+                _onTokenReceived()
             }
 
             val streamId = "main:${activeSessionKey}:${System.currentTimeMillis()}"
@@ -989,9 +1066,7 @@ class MainViewModel(
                             val json = Json.parseToJsonElement(chunk.data)
                             val trace = json.jsonObject["trace"]?.jsonPrimitive?.contentOrNull
                             if (trace != null) {
-                                withContext(Dispatchers.Main) {
-                                    updateSession(activeSessionKey) { it.copy(traceId = trace) }
-                                }
+                                updateSession(activeSessionKey) { it.copy(traceId = trace) }
                             }
                         } catch (_: Exception) {
                         }
@@ -1006,6 +1081,7 @@ class MainViewModel(
                         val targetId = "$incomingId.reply"
                         updateMessageById(targetId) { it.copy(content = newText) }
 
+                        maybeFireTokenHaptic()
                         maybeUpdateState()
                     }
                 }
@@ -1020,9 +1096,11 @@ class MainViewModel(
             var streamFiles: List<MultipartAssistantPromptFile>? = null
 
             if (attachmentUris.isNotEmpty()) {
-                val files = withContext(Dispatchers.IO) {
-                    attachmentUris.mapNotNull { uriStr ->
+                val preparedFiles = withContext(Dispatchers.IO) {
+                    attachmentUris.mapIndexedNotNull { index, uriStr ->
                         try {
+                            val optimisticDocument = optimisticDocuments.getOrNull(index)
+                                ?: return@mapIndexedNotNull null
                             val uri = uriStr.toUri()
                             val mimeType =
                                 context.contentResolver.getType(uri) ?: "application/octet-stream"
@@ -1038,7 +1116,7 @@ class MainViewModel(
                                 null
                             }
 
-                            MultipartAssistantPromptFile(file, thumbnail, mimeType)
+                            optimisticDocument to MultipartAssistantPromptFile(file, thumbnail, mimeType)
                         } catch (e: Exception) {
                             e.printStackTrace()
                             null
@@ -1046,22 +1124,23 @@ class MainViewModel(
                     }
                 }
 
-                val documents = files.map { promptFile ->
+                val files = preparedFiles.map { it.second }
+
+                val documents = preparedFiles.map { (matchingDocument, promptFile) ->
                     AssistantThreadMessageDocument(
-                        id = UUID.randomUUID().toString(),
-                        name = promptFile.file.name,
-                        mime = promptFile.mime,
-                        data = promptFile.thumbnail?.let { BitmapFactory.decodeFile(it.absolutePath) }
+                        id = matchingDocument?.id ?: UUID.randomUUID().toString(),
+                        name = matchingDocument?.name ?: promptFile.file.name,
+                        mime = matchingDocument?.mime ?: promptFile.mime,
+                        data = promptFile.thumbnail?.let { BitmapFactory.decodeFile(it.absolutePath) },
+                        uri = matchingDocument?.uri
                     )
                 }
 
                 if (documents.isNotEmpty()) {
                     updateMessageById(messageId) { msg ->
-                        msg.copy(documents = msg.documents + documents)
+                        msg.copy(documents = documents)
                     }
                 }
-
-                _messageCenterState.update { it.copy(attachmentUris = emptyList()) }
                 streamFiles = files
             }
 
@@ -1082,20 +1161,22 @@ class MainViewModel(
                     onChunk(chunk)
                     chunk.done
                 }
+            } catch (_: CancellationException) {
             } catch (e: Exception) {
                 e.printStackTrace()
             }
 
-            withContext(Dispatchers.Main) {
-                updateSession(activeSessionKey) {
-                    it.copy(
-                        inProgressAssistantMessageId = null,
-                        traceId = null
-                    )
-                }
-                updateMessagesStateFromSession(activeSessionKey)
-                updateGeneratingThreadsState()
+            updateSession(activeSessionKey) {
+                it.copy(
+                    inProgressAssistantMessageId = null,
+                    traceId = null,
+                    streamingJob = null,
+                    activeStreamId = null,
+                    editingMessageId = null
+                )
             }
+            updateMessagesStateFromSession(activeSessionKey)
+            updateGeneratingThreadsState()
         }
 
         updateSession(sessionKey) { it.copy(streamingJob = streamingJob) }

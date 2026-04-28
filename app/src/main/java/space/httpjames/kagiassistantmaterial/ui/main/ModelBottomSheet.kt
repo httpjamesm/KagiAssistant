@@ -64,6 +64,7 @@ fun ModelBottomSheet(
         sheetState = sheetState,
     ) {
         LaunchedEffect(Unit) {
+            viewModel.syncWithPrefs()
             viewModel.fetchProfiles()
         }
         if (uiState.profiles.isEmpty() && uiState.profilesCallState == DataFetchingState.FETCHING) {

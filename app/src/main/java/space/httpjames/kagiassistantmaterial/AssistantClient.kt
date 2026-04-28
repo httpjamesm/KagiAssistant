@@ -71,6 +71,7 @@ data class AssistantThreadMessageDocument(
     val name: String,
     val mime: String,
     val data: Bitmap?,
+    val uri: String? = null,
 )
 
 @Serializable

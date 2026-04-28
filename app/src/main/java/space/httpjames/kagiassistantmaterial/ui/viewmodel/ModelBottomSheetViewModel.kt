@@ -78,7 +78,10 @@ class ModelBottomSheetViewModel(
     val uiState: StateFlow<ModelBottomSheetUiState> = _uiState.asStateFlow()
 
     init {
-        // Load recently used profiles from preferences
+        syncWithPrefs()
+    }
+
+    fun syncWithPrefs() {
         val recentJson = prefs.getString(
             PreferenceKey.RECENTLY_USED_PROFILES.key,
             PreferenceKey.DEFAULT_RECENTLY_USED_PROFILES
@@ -86,7 +89,12 @@ class ModelBottomSheetViewModel(
         val recentlyUsed = Json.decodeFromString<List<String>>(
             recentJson ?: PreferenceKey.DEFAULT_RECENTLY_USED_PROFILES
         )
-        _uiState.update { it.copy(recentlyUsedProfileKeys = recentlyUsed) }
+        _uiState.update {
+            it.copy(
+                selectedProfileId = prefs.getString(PreferenceKey.PROFILE.key, null),
+                recentlyUsedProfileKeys = recentlyUsed
+            )
+        }
     }
 
     fun fetchProfiles() {
