@@ -875,6 +875,7 @@ class MainViewModel(
 
         val streamingJob = viewModelScope.launch {
             var lastStateUpdateTime = 0L
+            var lastHapticTime = 0L
             var activeSessionKey = sessionKey
             val branchId = localMessages.lastOrNull()?.branchIds?.lastOrNull()
 
@@ -953,10 +954,19 @@ class MainViewModel(
                 if (force || currentTime - lastStateUpdateTime >= STATE_UPDATE_THROTTLE_MS) {
                     lastStateUpdateTime = currentTime
                     updateMessagesStateFromSession(activeSessionKey)
-                    if (shouldPlayTokenHaptic(activeSessionKey)) {
-                        _onTokenReceived()
-                    }
                 }
+            }
+
+            // Token haptics are decoupled from the UI-state throttle so that
+            // metadata events (e.g. new_message.json with force = true) cannot
+            // mistakenly fire a token haptic, and so that haptics are scheduled
+            // on their own cadence regardless of how often state is published.
+            fun maybeFireTokenHaptic() {
+                if (!shouldPlayTokenHaptic(activeSessionKey)) return
+                val now = System.currentTimeMillis()
+                if (now - lastHapticTime < STATE_UPDATE_THROTTLE_MS) return
+                lastHapticTime = now
+                _onTokenReceived()
             }
 
             val streamId = "main:${activeSessionKey}:${System.currentTimeMillis()}"
@@ -1071,6 +1081,7 @@ class MainViewModel(
                         val targetId = "$incomingId.reply"
                         updateMessageById(targetId) { it.copy(content = newText) }
 
+                        maybeFireTokenHaptic()
                         maybeUpdateState()
                     }
                 }

@@ -70,12 +70,21 @@ fun MainScreen(
         factory = AssistantViewModelFactory(
             assistantClient,
             prefs,
-            cacheDir,
-            onTokenReceived = {
-                view.performHapticFeedback(android.view.HapticFeedbackConstants.TEXT_HANDLE_MOVE)
-            }
+            cacheDir
         )
     )
+
+    // Re-bind the token haptic callback whenever the underlying View changes
+    // (e.g. configuration changes, returning from Settings). Without this the
+    // ViewModel would retain a stale `view` reference captured during the
+    // factory's first invocation, and `performHapticFeedback` on a detached
+    // view silently no-ops, killing token haptics for the rest of the VM's
+    // lifetime.
+    LaunchedEffect(view, viewModel) {
+        viewModel.setOnTokenReceived {
+            view.performHapticFeedback(android.view.HapticFeedbackConstants.TEXT_HANDLE_MOVE)
+        }
+    }
     val threadsState by viewModel.threadsState.collectAsState()
     val messagesState by viewModel.messagesState.collectAsState()
     val generatingThreads by viewModel.generatingThreadsState.collectAsState()
