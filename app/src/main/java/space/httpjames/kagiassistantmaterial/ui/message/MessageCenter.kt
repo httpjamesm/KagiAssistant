@@ -226,6 +226,7 @@ fun MessageCenter(
                 }
 
                 val thinkForcedOn = viewModel.isReasoningOnlyModel(viewModel.getProfile())
+                val hasReasoningCounterpart = viewModel.hasReasoningCounterpart(viewModel.getProfile())
                 val backgroundColor by animateColorAsState(
                     if (messageCenterState.isSearchEnabled) MaterialTheme.colorScheme.primary else Color.Transparent,
                     label = "Internet button background"
@@ -254,12 +255,12 @@ fun MessageCenter(
                         contentDescription = "Toggle internet access",
                         tint = contentColor
                     )
-                    if (messageCenterState.isSearchEnabled && !(messageCenterState.thinkEnabled || thinkForcedOn)) {
+                    if (messageCenterState.isSearchEnabled && (!(messageCenterState.thinkEnabled || thinkForcedOn) || !hasReasoningCounterpart)) {
                         Text("Internet", color = contentColor)
                     }
                 }
 
-                if (viewModel.hasReasoningCounterpart(viewModel.getProfile())) {
+                if (hasReasoningCounterpart) {
                     val thinkOn = messageCenterState.thinkEnabled || thinkForcedOn
                     val thinkBackgroundColor by animateColorAsState(
                         if (thinkOn) MaterialTheme.colorScheme.primary else Color.Transparent,
