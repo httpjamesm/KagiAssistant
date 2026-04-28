@@ -152,11 +152,16 @@ fun MainScreen(
     }
 
 
-    // Only handle back for "clear chat" when keyboard is NOT visible
+    // Only handle back for "clear chat" when keyboard is NOT visible.
+    // Mirrors the Header's "New Chat" button: trigger newChat() whenever there's
+    // an existing thread, or a fresh non-temporary chat that already has messages
+    // (e.g. a failed send before a thread id was assigned).
     BackHandler(
         enabled = !drawerState.isOpen
-                && threadsState.currentThreadId != null
                 && !imeVisible
+                && (threadsState.currentThreadId != null
+                        || (messagesState.messages.isNotEmpty()
+                                && !messagesState.isTemporaryChat))
     ) {
         viewModel.newChat()
     }
@@ -232,7 +237,8 @@ fun MainScreen(
                     onTemporaryChatClick = {
                         viewModel.toggleIsTemporaryChat()
                     },
-                    isTemporaryChat = messagesState.isTemporaryChat
+                    isTemporaryChat = messagesState.isTemporaryChat,
+                    hasMessages = messagesState.messages.isNotEmpty(),
                 )
             }
         ) { innerPadding ->
