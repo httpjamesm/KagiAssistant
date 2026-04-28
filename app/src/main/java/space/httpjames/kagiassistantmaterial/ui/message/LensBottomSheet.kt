@@ -67,7 +67,7 @@ fun LensBottomSheet(
                     LazyColumn(modifier = Modifier.fillMaxWidth()) {
                         item {
                             LensRow(
-                                name = "Default",
+                                name = "Internet (Default)",
                                 description = "Search the web without a lens.",
                                 selected = selectedLens == null,
                                 onClick = onDefaultInternetSelected
