@@ -60,7 +60,6 @@ fun Header(
             Crossfade(
                 targetState = threadTitle,
                 label = "Thread Title",
-                animationSpec = tween(durationMillis = 500)
             ) {
                 if (it != null) {
                     Box {
@@ -114,7 +113,6 @@ fun Header(
                 Crossfade(
                     targetState = iconState,
                     label = "Chat action icon",
-                    animationSpec = tween(750)
                 ) { state ->
                     Icon(
                         imageVector = when (state) {

@@ -39,7 +39,6 @@ fun EmptyChatPlaceholder(
     Crossfade(
         targetState = isTemporaryChat,
         label = "Empty Chat Placeholder",
-        animationSpec = tween(750),
         modifier = Modifier.fillMaxSize()
     ) {
         Column(
