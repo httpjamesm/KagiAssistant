@@ -30,6 +30,7 @@ import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import okio.BufferedSource
 import org.jsoup.Jsoup
+import org.jsoup.parser.Parser
 import space.httpjames.kagiassistantmaterial.ui.message.AssistantProfile
 import space.httpjames.kagiassistantmaterial.ui.message.toObject
 import space.httpjames.kagiassistantmaterial.utils.JsonLenient
@@ -119,7 +120,7 @@ data class KagiPromptRequestFocus(
 data class KagiPromptRequestProfile(
     val id: String?,
     val internet_access: Boolean,
-    val lens_id: String?,
+    val lens_id: Int?,
     val model: String,
     val personalizations: Boolean,
 )
@@ -166,6 +167,12 @@ data class KagiCompanion(
     val id: String,
     val name: String,
     val data: String,
+)
+
+data class AssistantLens(
+    val id: Int,
+    val name: String,
+    val description: String,
 )
 
 data class MultipartAssistantPromptFile(
@@ -373,6 +380,19 @@ class AssistantClient(
 
                 KagiCompanion(companionId, name, data)
             }
+        }
+    }
+
+    suspend fun getLenses(): List<AssistantLens> {
+        val request = Request.Builder()
+            .url("https://kagi.com/assistant")
+            .headers(baseHeaders)
+            .get()
+            .build()
+
+        return okHttpClient.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) return emptyList()
+            parseAssistantLensesFromHtml(response.body?.string().orEmpty())
         }
     }
 
@@ -679,6 +699,41 @@ fun parseMetadata(html: String): Map<String, String> {
         val key = li.selectFirst("span.attribute")?.text() ?: ""
         val value = li.selectFirst("span.value")?.text() ?: ""
         key to value
+    }
+}
+
+fun parseAssistantLensesFromHtml(html: String): List<AssistantLens> {
+    val profileListElement = Jsoup.parse(html).selectFirst("#json-profile-list") ?: return emptyList()
+    val rawJson = profileListElement.html().ifBlank { profileListElement.text() }
+    val decodedJson = Parser.unescapeEntities(rawJson, false)
+        .replace(" &quot;", "\"")
+        .replace("&quot;", "\"")
+
+    return try {
+        Json.parseToJsonElement(decodedJson)
+            .jsonObject
+            .firstNotNullOfOrNull { (key, value) ->
+                if (key.trim() == "lenses") value.jsonArray else null
+            }
+            ?.mapNotNull { lensElement ->
+                val lensObject = lensElement.jsonObject.mapKeys { (key, _) -> key.trim() }
+                val id = lensObject["id"]?.jsonPrimitive?.intOrNull
+                val name = lensObject["name"]?.jsonPrimitive?.contentOrNull?.trim().orEmpty()
+                val description = lensObject["description"]?.jsonPrimitive?.contentOrNull?.trim().orEmpty()
+
+                if (id == null || name.isBlank()) {
+                    null
+                } else {
+                    AssistantLens(
+                        id = id,
+                        name = name,
+                        description = description
+                    )
+                }
+            }
+            .orEmpty()
+    } catch (_: Exception) {
+        emptyList()
     }
 }
 

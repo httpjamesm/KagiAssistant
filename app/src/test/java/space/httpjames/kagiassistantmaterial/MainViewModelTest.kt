@@ -18,12 +18,14 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -36,6 +38,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import space.httpjames.kagiassistantmaterial.data.repository.AssistantRepository
+import space.httpjames.kagiassistantmaterial.streaming.StreamingSessionManager
 import space.httpjames.kagiassistantmaterial.ui.message.AssistantProfile
 import space.httpjames.kagiassistantmaterial.ui.viewmodel.MainViewModel
 import space.httpjames.kagiassistantmaterial.utils.DataFetchingState
@@ -604,6 +607,56 @@ class MainViewModelTest {
     }
 
     @Test
+    fun parseAssistantLensesFromHtml_decodesEntitiesAndTrimsKeys() {
+        val html = """
+            <div id="json-profile-list">
+                {&quot;lenses &quot;:[{&quot;id &quot;:15,&quot;name &quot;:&quot;Programming &quot;,&quot;description &quot;:&quot;Official sites &amp; forums.&quot;}]}
+            </div>
+        """.trimIndent()
+
+        val lenses = parseAssistantLensesFromHtml(html)
+
+        assertEquals(listOf(AssistantLens("15", "Programming", "Official sites & forums.")), lenses)
+    }
+
+    @Test
+    fun lensSelection_fetchesLensesAndSetsPromptLensId() = runTest(testDispatcher) {
+        val lens = AssistantLens("15", "Programming", "Official programming language websites and forums.")
+        val repo = FakeAssistantRepository(lenses = listOf(lens))
+        val context = mockk<Context>(relaxed = true)
+        every { context.startService(any()) } throws IllegalStateException("Use fake stream")
+        every { context.startForegroundService(any()) } throws IllegalStateException("Use fake stream")
+        StreamingSessionManager.init(repo)
+        val viewModel = MainViewModel(
+            repo,
+            InMemorySharedPreferences(),
+            ioDispatcher = testDispatcher
+        )
+
+        advanceUntilIdle()
+        viewModel.openLensBottomSheet()
+        advanceUntilIdle()
+
+        assertEquals(listOf(lens), viewModel.messageCenterState.value.lenses)
+        assertEquals(DataFetchingState.OK, viewModel.messageCenterState.value.lensesCallState)
+
+        viewModel.selectLens(lens)
+
+        assertEquals(lens, viewModel.messageCenterState.value.selectedLens)
+        assertTrue(viewModel.messageCenterState.value.isSearchEnabled)
+
+        viewModel.onMessageCenterTextChanged("hello")
+        viewModel.sendMessage(context)
+        advanceUntilIdle()
+
+        val promptRequest = Json.decodeFromString<KagiPromptRequest>(repo.fetchStreamBodies.single())
+
+        assertEquals("15", promptRequest.profile.lens_id)
+
+        viewModel.stopGeneration()
+    }
+
+    @Test
     fun modelBottomSheetVisibilityToggles() = runTest(testDispatcher) {
         val viewModel = MainViewModel(FakeAssistantRepository(), InMemorySharedPreferences())
 
@@ -951,6 +1004,7 @@ class MainViewModelTest {
         ),
         val threadPages: Map<String, ThreadPageData> = emptyMap(),
         val profiles: List<AssistantProfile> = emptyList(),
+        val lenses: List<AssistantLens> = emptyList(),
     ) : AssistantRepository {
         val fetchThreadPageCalls = mutableMapOf<String, Int>()
         val fetchThreadPageExceptions = mutableMapOf<String, Exception>()
@@ -961,6 +1015,7 @@ class MainViewModelTest {
         val searchResultsByQuery = mutableMapOf<String, List<ThreadSearchResult>>()
         val deleteChatCalls = mutableListOf<String>()
         val stopGenerationCalls = mutableListOf<String>()
+        val fetchStreamBodies = mutableListOf<String>()
         var getThreadsException: Exception? = null
         var searchException: Exception? = null
         var deleteChatResult: Result<Unit> = Result.success(Unit)
@@ -1012,11 +1067,16 @@ class MainViewModelTest {
             body: String?,
             method: String,
             extraHeaders: Map<String, String>
-        ): Flow<StreamChunk> = emptyFlow()
+        ): Flow<StreamChunk> {
+            body?.let { fetchStreamBodies += it }
+            return flowOf(StreamChunk(header = "done", data = "", done = true))
+        }
 
         override suspend fun getProfiles(): List<AssistantProfile> = profiles
 
         override suspend fun getKagiCompanions(): List<KagiCompanion> = emptyList()
+
+        override suspend fun getLenses(): List<AssistantLens> = lenses
 
         override fun sendMultipartRequest(
             url: String,

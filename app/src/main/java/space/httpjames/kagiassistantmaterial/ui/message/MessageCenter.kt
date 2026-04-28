@@ -2,8 +2,10 @@ package space.httpjames.kagiassistantmaterial.ui.message
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -66,6 +68,7 @@ import space.httpjames.kagiassistantmaterial.ui.main.ModelBottomSheet
 import space.httpjames.kagiassistantmaterial.ui.viewmodel.MainViewModel
 import space.httpjames.kagiassistantmaterial.utils.PreferenceKey
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MessageCenter(
     threadId: String?,
@@ -242,10 +245,16 @@ fun MessageCenter(
                         .animateContentSize()
                         .clip(CircleShape)
                         .background(backgroundColor)
-                        .clickable {
-                            viewModel.toggleSearch()
-                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        }
+                        .combinedClickable(
+                            onClick = {
+                                viewModel.toggleSearch()
+                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            },
+                            onLongClick = {
+                                viewModel.openLensBottomSheet()
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            }
+                        )
                         .padding(horizontal = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -256,7 +265,7 @@ fun MessageCenter(
                         tint = contentColor
                     )
                     if (messageCenterState.isSearchEnabled && (!(messageCenterState.thinkEnabled || thinkForcedOn) || !hasReasoningCounterpart)) {
-                        Text("Internet", color = contentColor)
+                        Text(messageCenterState.selectedLens?.name ?: "Internet", color = contentColor)
                     }
                 }
 
@@ -361,6 +370,18 @@ fun MessageCenter(
             onDismissRequest = { viewModel.onDismissAttachmentBottomSheet() },
             onAttachment = { viewModel.addAttachmentUri(context, it) },
             isTemporaryChat = messagesState.isTemporaryChat,
+        )
+    }
+
+    if (messageCenterState.showLensBottomSheet) {
+        LensBottomSheet(
+            lenses = messageCenterState.lenses,
+            selectedLens = messageCenterState.selectedLens,
+            callState = messageCenterState.lensesCallState,
+            onLensSelected = { viewModel.selectLens(it) },
+            onDefaultInternetSelected = { viewModel.clearLens() },
+            onRetryClick = { viewModel.fetchLenses() },
+            onDismissRequest = { viewModel.dismissLensBottomSheet() }
         )
     }
 }

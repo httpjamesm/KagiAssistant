@@ -28,6 +28,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.jsoup.Jsoup
+import space.httpjames.kagiassistantmaterial.AssistantLens
 import space.httpjames.kagiassistantmaterial.AssistantThread
 import space.httpjames.kagiassistantmaterial.AssistantThreadMessage
 import space.httpjames.kagiassistantmaterial.AssistantThreadMessageDocument
@@ -115,7 +116,11 @@ data class MessageCenterUiState(
     val profiles: List<AssistantProfile> = emptyList(),
     val showAttachmentBottomSheet: Boolean = false,
     val attachmentUris: List<String> = emptyList(),
-    val showAttachmentSizeLimitWarning: Boolean = false
+    val showAttachmentSizeLimitWarning: Boolean = false,
+    val showLensBottomSheet: Boolean = false,
+    val lenses: List<AssistantLens> = emptyList(),
+    val lensesCallState: DataFetchingState = DataFetchingState.OK,
+    val selectedLens: AssistantLens? = null
 )
 
 const val STATE_UPDATE_THROTTLE_MS = 32
@@ -660,6 +665,54 @@ class MainViewModel(
         }
     }
 
+    fun openLensBottomSheet() {
+        _messageCenterState.update { it.copy(showLensBottomSheet = true) }
+        if (_messageCenterState.value.lenses.isEmpty()) {
+            fetchLenses()
+        }
+    }
+
+    fun dismissLensBottomSheet() {
+        _messageCenterState.update { it.copy(showLensBottomSheet = false) }
+    }
+
+    fun fetchLenses() {
+        viewModelScope.launch {
+            try {
+                _messageCenterState.update { it.copy(lensesCallState = DataFetchingState.FETCHING) }
+                val lenses = repository.getLenses()
+                _messageCenterState.update {
+                    it.copy(
+                        lenses = lenses,
+                        lensesCallState = DataFetchingState.OK
+                    )
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _messageCenterState.update { it.copy(lensesCallState = DataFetchingState.ERRORED) }
+            }
+        }
+    }
+
+    fun selectLens(lens: AssistantLens) {
+        _messageCenterState.update {
+            it.copy(
+                selectedLens = lens,
+                isSearchEnabled = true,
+                showLensBottomSheet = false
+            )
+        }
+    }
+
+    fun clearLens() {
+        _messageCenterState.update {
+            it.copy(
+                selectedLens = null,
+                showLensBottomSheet = false
+            )
+        }
+    }
+
     fun openModelBottomSheet() {
         _messageCenterState.update { it.copy(showModelBottomSheet = true) }
     }
@@ -830,6 +883,7 @@ class MainViewModel(
         val trimmedDraftText = draftText.trim()
         val selectedProfile = getProfile()
         val searchEnabled = messageCenterState.isSearchEnabled
+        val selectedLensId = if (searchEnabled) messageCenterState.selectedLens?.id else null
         val attachmentUris = messageCenterState.attachmentUris
         val optimisticDocuments = attachmentUris.map { uriStr ->
             val uri = uriStr.toUri()
@@ -905,7 +959,7 @@ class MainViewModel(
                 KagiPromptRequestProfile(
                     effectiveProfile?.id,
                     searchEnabled,
-                    null,
+                    selectedLensId,
                     effectiveProfile?.model ?: "",
                     false,
                 ),
