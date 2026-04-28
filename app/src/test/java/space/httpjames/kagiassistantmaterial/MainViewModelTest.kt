@@ -3,11 +3,15 @@ package space.httpjames.kagiassistantmaterial
 import android.content.ContentResolver
 import android.content.Context
 import android.content.SharedPreferences
+import android.database.Cursor
 import android.net.Uri
+import android.provider.OpenableColumns
 import io.mockk.Runs
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -722,6 +726,73 @@ class MainViewModelTest {
         assertEquals(listOf(uri1.toString(), uri2.toString()), viewModel.messageCenterState.value.attachmentUris)
         verify(exactly = 1) { resolver.takePersistableUriPermission(uri1, any()) }
         verify(exactly = 1) { resolver.takePersistableUriPermission(uri2, any()) }
+    }
+
+    @Test
+    fun sendMessage_clearsComposerAttachmentsImmediatelyAndAddsOptimisticDocuments() = runTest(testDispatcher) {
+        val firstUri = mockk<Uri>()
+        val secondUri = mockk<Uri>()
+        val resolver = mockk<ContentResolver>()
+        val firstCursor = mockk<Cursor>(relaxed = true)
+        val secondCursor = mockk<Cursor>(relaxed = true)
+        val context = mockk<Context>(relaxed = true)
+
+        mockkStatic(Uri::class)
+        every { context.contentResolver } returns resolver
+        every { Uri.parse("content://one") } returns firstUri
+        every { Uri.parse("content://two") } returns secondUri
+        every { firstUri.lastPathSegment } returns "one"
+        every { secondUri.lastPathSegment } returns "two"
+        every { firstUri.toString() } returns "content://one"
+        every { secondUri.toString() } returns "content://two"
+        every { resolver.getType(firstUri) } returns "image/png"
+        every { resolver.getType(secondUri) } returns "text/plain"
+        every { firstCursor.moveToFirst() } returns true
+        every { secondCursor.moveToFirst() } returns true
+        every { firstCursor.getColumnIndex(OpenableColumns.DISPLAY_NAME) } returns 0
+        every { secondCursor.getColumnIndex(OpenableColumns.DISPLAY_NAME) } returns 0
+        every { firstCursor.getString(0) } returns "photo.png"
+        every { secondCursor.getString(0) } returns "notes.txt"
+        every {
+            resolver.query(firstUri, any(), any(), any(), any())
+        } returns firstCursor
+        every {
+            resolver.query(secondUri, any(), any(), any(), any())
+        } returns secondCursor
+
+        val viewModel = MainViewModel(
+            FakeAssistantRepository(),
+            InMemorySharedPreferences(),
+            ioDispatcher = testDispatcher,
+            attachmentSizeProvider = { _, _ -> 1024L }
+        )
+
+        try {
+            advanceUntilIdle()
+            viewModel.onMessageCenterTextChanged("hello")
+            viewModel.addAttachmentUri(context, firstUri.toString())
+            viewModel.addAttachmentUri(context, secondUri.toString())
+
+            viewModel.sendMessage(context)
+
+            assertEquals("", viewModel.messageCenterState.value.text)
+            assertTrue(viewModel.messageCenterState.value.attachmentUris.isEmpty())
+
+            val sentMessages = viewModel.messagesState.value.messages
+            assertEquals(2, sentMessages.size)
+            assertEquals(AssistantThreadMessageRole.USER, sentMessages.first().role)
+            assertEquals("hello", sentMessages.first().content)
+            assertEquals(listOf("photo.png", "notes.txt"), sentMessages.first().documents.map { it.name })
+            assertEquals(
+                listOf(firstUri.toString(), secondUri.toString()),
+                sentMessages.first().documents.map { it.uri }
+            )
+            assertTrue(sentMessages.first().documents.all { it.data == null })
+
+            viewModel.stopGeneration()
+        } finally {
+            unmockkStatic(Uri::class)
+        }
     }
 
     @Test

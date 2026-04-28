@@ -60,7 +60,7 @@ fun Header(
             Crossfade(
                 targetState = threadTitle,
                 label = "Thread Title",
-                animationSpec = tween(durationMillis = 1200)
+                animationSpec = tween(durationMillis = 500)
             ) {
                 if (it != null) {
                     Box {

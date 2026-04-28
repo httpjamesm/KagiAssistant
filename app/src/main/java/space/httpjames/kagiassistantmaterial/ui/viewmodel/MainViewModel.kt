@@ -49,6 +49,7 @@ import space.httpjames.kagiassistantmaterial.streaming.StreamingSessionManager
 import space.httpjames.kagiassistantmaterial.toObject
 import space.httpjames.kagiassistantmaterial.ui.message.AssistantProfile
 import space.httpjames.kagiassistantmaterial.ui.message.copyToTempFile
+import space.httpjames.kagiassistantmaterial.ui.message.getFileName
 import space.httpjames.kagiassistantmaterial.ui.message.hasBaseVariant
 import space.httpjames.kagiassistantmaterial.ui.message.hasReasoningCapability
 import space.httpjames.kagiassistantmaterial.ui.message.isReasoningModel
@@ -829,6 +830,16 @@ class MainViewModel(
         val selectedProfile = getProfile()
         val searchEnabled = messageCenterState.isSearchEnabled
         val attachmentUris = messageCenterState.attachmentUris
+        val optimisticDocuments = attachmentUris.map { uriStr ->
+            val uri = uriStr.toUri()
+            AssistantThreadMessageDocument(
+                id = UUID.randomUUID().toString(),
+                name = context.getFileName(uri) ?: uri.lastPathSegment ?: "Attachment",
+                mime = context.contentResolver.getType(uri) ?: "application/octet-stream",
+                data = null,
+                uri = uriStr
+            )
+        }
         val editingMessageId = getEditingMessageId()
         var messageId = UUID.randomUUID().toString()
         val inProgressId = "$messageId.reply"
@@ -844,6 +855,7 @@ class MainViewModel(
             content = draftText,
             role = AssistantThreadMessageRole.USER,
             citations = emptyList(),
+            documents = optimisticDocuments,
             branchIds = branchIdContext,
             profile = null,
         )
@@ -858,6 +870,8 @@ class MainViewModel(
             profile = selectedProfile
         )
         updateSession(sessionKey) { it.copy(inProgressAssistantMessageId = inProgressId) }
+        _messageCenterState.update { it.copy(text = "", attachmentUris = emptyList()) }
+        saveText("")
 
         val streamingJob = viewModelScope.launch {
             var lastStateUpdateTime = 0L
@@ -870,8 +884,6 @@ class MainViewModel(
                 trimmedDraftText,
                 branchId,
             )
-
-            onMessageCenterTextChanged("")
 
             var autoSave = true
             try {
@@ -1073,9 +1085,11 @@ class MainViewModel(
             var streamFiles: List<MultipartAssistantPromptFile>? = null
 
             if (attachmentUris.isNotEmpty()) {
-                val files = withContext(Dispatchers.IO) {
-                    attachmentUris.mapNotNull { uriStr ->
+                val preparedFiles = withContext(Dispatchers.IO) {
+                    attachmentUris.mapIndexedNotNull { index, uriStr ->
                         try {
+                            val optimisticDocument = optimisticDocuments.getOrNull(index)
+                                ?: return@mapIndexedNotNull null
                             val uri = uriStr.toUri()
                             val mimeType =
                                 context.contentResolver.getType(uri) ?: "application/octet-stream"
@@ -1091,7 +1105,7 @@ class MainViewModel(
                                 null
                             }
 
-                            MultipartAssistantPromptFile(file, thumbnail, mimeType)
+                            optimisticDocument to MultipartAssistantPromptFile(file, thumbnail, mimeType)
                         } catch (e: Exception) {
                             e.printStackTrace()
                             null
@@ -1099,22 +1113,23 @@ class MainViewModel(
                     }
                 }
 
-                val documents = files.map { promptFile ->
+                val files = preparedFiles.map { it.second }
+
+                val documents = preparedFiles.map { (matchingDocument, promptFile) ->
                     AssistantThreadMessageDocument(
-                        id = UUID.randomUUID().toString(),
-                        name = promptFile.file.name,
-                        mime = promptFile.mime,
-                        data = promptFile.thumbnail?.let { BitmapFactory.decodeFile(it.absolutePath) }
+                        id = matchingDocument?.id ?: UUID.randomUUID().toString(),
+                        name = matchingDocument?.name ?: promptFile.file.name,
+                        mime = matchingDocument?.mime ?: promptFile.mime,
+                        data = promptFile.thumbnail?.let { BitmapFactory.decodeFile(it.absolutePath) },
+                        uri = matchingDocument?.uri
                     )
                 }
 
                 if (documents.isNotEmpty()) {
                     updateMessageById(messageId) { msg ->
-                        msg.copy(documents = msg.documents + documents)
+                        msg.copy(documents = documents)
                     }
                 }
-
-                _messageCenterState.update { it.copy(attachmentUris = emptyList()) }
                 streamFiles = files
             }
 

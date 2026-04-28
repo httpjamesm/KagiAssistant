@@ -68,7 +68,8 @@ fun AttachmentPreview(uri: String, onRemove: (uri: String) -> Unit, readOnly: Bo
         SwipeToRemoveBox(
             uri = uri,
             modifier = Modifier.size(84.dp),
-            onRemove = { handleRemove() }
+            onRemove = { handleRemove() },
+            enabled = !readOnly,
         ) {
             Box(
                 modifier = Modifier
@@ -83,7 +84,9 @@ fun AttachmentPreview(uri: String, onRemove: (uri: String) -> Unit, readOnly: Bo
                     modifier = Modifier.fillMaxSize()
                 )
             }
-            RemoveButton(onClick = { handleRemove(false) })
+            if (!readOnly) {
+                RemoveButton(onClick = { handleRemove(false) })
+            }
         }
     } else {
         SwipeToRemoveBox(
@@ -95,7 +98,8 @@ fun AttachmentPreview(uri: String, onRemove: (uri: String) -> Unit, readOnly: Bo
                     shape = RoundedCornerShape(8.dp),
                     color = MaterialTheme.colorScheme.background
                 ),
-            onRemove = { handleRemove() }
+            onRemove = { handleRemove() },
+            enabled = !readOnly,
         ) {
             Column(
                 verticalArrangement = Arrangement.Center,
@@ -116,7 +120,9 @@ fun AttachmentPreview(uri: String, onRemove: (uri: String) -> Unit, readOnly: Bo
                     modifier = Modifier.alpha(0.8f)
                 )
             }
-            RemoveButton(onClick = { handleRemove(false) })
+            if (!readOnly) {
+                RemoveButton(onClick = { handleRemove(false) })
+            }
         }
     }
 
@@ -167,6 +173,7 @@ private fun SwipeToRemoveBox(
     uri: String,
     modifier: Modifier = Modifier,
     onRemove: () -> Unit,
+    enabled: Boolean = true,
     content: @Composable BoxScope.() -> Unit
 ) {
     var offsetY by remember { mutableFloatStateOf(0f) }
@@ -174,7 +181,10 @@ private fun SwipeToRemoveBox(
     Box(
         modifier = modifier
             .offset { IntOffset(0, offsetY.toInt()) }
-            .pointerInput(uri) {
+            .pointerInput(uri, enabled) {
+                if (!enabled) {
+                    return@pointerInput
+                }
                 var startY = 0f
                 detectVerticalDragGestures(
                     onDragEnd = {

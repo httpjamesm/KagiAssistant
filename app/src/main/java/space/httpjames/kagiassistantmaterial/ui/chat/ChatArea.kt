@@ -103,7 +103,7 @@ fun ChatArea(
     Crossfade(
         targetState = threadMessages.isEmpty(),
         modifier = modifier,
-        animationSpec = tween(durationMillis = 1200),
+        animationSpec = tween(durationMillis = 500),
         label = "ChatAreaCrossfade"
     ) {
         if (threadMessagesCallState == DataFetchingState.FETCHING) {
@@ -154,7 +154,7 @@ fun ChatArea(
 
                 Crossfade(
                     targetState = showButton,
-                    animationSpec = tween(durationMillis = 1200),
+                    animationSpec = tween(durationMillis = 500),
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .padding(12.dp),
