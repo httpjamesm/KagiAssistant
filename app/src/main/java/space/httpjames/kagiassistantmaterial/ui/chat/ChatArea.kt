@@ -146,6 +146,7 @@ fun ChatArea(
                                 finishedGenerating = threadMessage.finishedGenerating,
                                 markdownContent = threadMessage.markdownContent,
                                 metadata = threadMessage.metadata,
+                                failed = threadMessage.failed,
                             )
                         }
                     }

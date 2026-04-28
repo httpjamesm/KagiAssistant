@@ -64,6 +64,7 @@ data class AssistantThreadMessage(
     val markdownContent: String? = null,
     val metadata: Map<String, String> = emptyMap(),
     val profile: AssistantProfile?,
+    val failed: Boolean = false,
 )
 
 data class AssistantThreadMessageDocument(

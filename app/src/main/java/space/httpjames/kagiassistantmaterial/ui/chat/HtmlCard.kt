@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -25,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -39,6 +41,10 @@ fun HtmlCard(
     onHeightMeasured: (() -> Unit)? = null,
 ) {
     var heightState by remember { mutableIntStateOf(0) }
+
+    // Resolve Material theme colors that need to be available inside the WebView.
+    // Convert ARGB ints into CSS hex (#RRGGBB) so they can be injected as CSS variables.
+    val errorColorCss = MaterialTheme.colorScheme.error.toCssHex()
 
     val animatedHeight by animateDpAsState(
         targetValue = if (maxHeight != Dp.Unspecified) {
@@ -137,6 +143,7 @@ fun HtmlCard(
                                 html = html,
                                 cssScheme = if (night) "dark" else "light",
                                 allowPageScroll = allowInternalScroll,
+                                errorColorCss = errorColorCss,
                             )
                         tag = html
                         loadDataWithBaseURL(null, styledHtml, "text/html", "utf-8", null)
@@ -178,11 +185,20 @@ private class HtmlViewerJavaScriptInterface(
     }
 }
 
+private fun Color.toCssHex(): String {
+    val argb = this.toArgb()
+    val r = (argb shr 16) and 0xFF
+    val g = (argb shr 8) and 0xFF
+    val b = argb and 0xFF
+    return "#%02X%02X%02X".format(r, g, b)
+}
+
 private fun wrapHtmlWithStyles(
     context: Context,
     html: String,
     cssScheme: String,
     allowPageScroll: Boolean = false,
+    errorColorCss: String,
 ): String {
     val codehiliteStyles =
         context.assets.open("HtmlCardCodehiliteStyles.css").bufferedReader().use { it.readText() }
@@ -209,6 +225,7 @@ private fun wrapHtmlWithStyles(
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <style>
                 body { margin: 0; padding: 0; background-color: transparent; }
+                :root { --error-color: $errorColorCss; }
                 $mainStyles
                 $codehiliteStyles
                 $scrollingStyles
