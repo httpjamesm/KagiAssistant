@@ -6,6 +6,7 @@ import android.content.SharedPreferences
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.webkit.MimeTypeMap
+import android.widget.Toast
 import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -971,8 +972,28 @@ class MainViewModel(
 
             val streamId = "main:${activeSessionKey}:${System.currentTimeMillis()}"
 
+            var didFail = false
+
+            suspend fun markMessageAsFailed() {
+                didFail = true
+                updateMessageById(currentInProgressId) {
+                    it.copy(
+                        content = "<p class=\"native-error\">Failed to send message. Edit to retry.</p>",
+                        finishedGenerating = true,
+                        markdownContent = null,
+                        citations = emptyList(),
+                        metadata = emptyMap(),
+                        failed = true,
+                    )
+                }
+                maybeUpdateState(force = true)
+            }
+
             suspend fun onChunk(chunk: StreamChunk) {
                 when (chunk.header) {
+                    "error" -> {
+                        markMessageAsFailed()
+                    }
                     "thread.json" -> {
                         val json = Json.parseToJsonElement(chunk.data)
                         val id = json.jsonObject["id"]?.jsonPrimitive?.contentOrNull
@@ -1164,6 +1185,17 @@ class MainViewModel(
             } catch (_: CancellationException) {
             } catch (e: Exception) {
                 e.printStackTrace()
+                markMessageAsFailed()
+            }
+
+            if (didFail) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(
+                        context,
+                        "Failed to send message",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
             }
 
             updateSession(activeSessionKey) {

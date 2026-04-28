@@ -168,6 +168,7 @@ fun ChatMessage(
     finishedGenerating: Boolean = true,
     markdownContent: String?,
     metadata: Map<String, String> = emptyMap(),
+    failed: Boolean = false,
 ) {
     val isMe = role == AssistantThreadMessageRole.USER
     val background = if (isMe) MaterialTheme.colorScheme.primary
@@ -357,6 +358,7 @@ fun ChatMessage(
                                                         )
                                                     }
                                                 },
+                                                enabled = !failed,
                                                 colors = IconButtonDefaults.iconButtonColors(
                                                     contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )

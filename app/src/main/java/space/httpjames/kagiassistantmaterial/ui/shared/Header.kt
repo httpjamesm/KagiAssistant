@@ -44,11 +44,15 @@ fun Header(
     onDeleteClick: () -> Unit,
     onTemporaryChatClick: () -> Unit,
     isTemporaryChat: Boolean,
+    hasMessages: Boolean = false,
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
+    // Show the "New Chat" action whenever there's something to leave behind:
+    // a persisted thread, an explicit temporary chat, or even a fresh chat that
+    // already has messages (e.g. a failed send before a thread id was assigned).
     val iconState = when {
-        currentThreadId != null || isTemporaryChat -> ChatActionIcon.NewChat
+        currentThreadId != null || isTemporaryChat || hasMessages -> ChatActionIcon.NewChat
         else -> ChatActionIcon.TemporaryChat
     }
 
@@ -106,7 +110,10 @@ fun Header(
         actions = {
             IconButton(
                 onClick = {
-                    if (currentThreadId != null) onNewChatClick() else onTemporaryChatClick()
+                    when (iconState) {
+                        ChatActionIcon.NewChat -> onNewChatClick()
+                        ChatActionIcon.TemporaryChat -> onTemporaryChatClick()
+                    }
                 },
                 enabled = true
             ) {
