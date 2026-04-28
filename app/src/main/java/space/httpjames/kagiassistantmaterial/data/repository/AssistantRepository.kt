@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonElement
 import space.httpjames.kagiassistantmaterial.AssistantClient
+import space.httpjames.kagiassistantmaterial.AssistantLens
 import space.httpjames.kagiassistantmaterial.AssistantThread
 import space.httpjames.kagiassistantmaterial.KagiCompanion
 import space.httpjames.kagiassistantmaterial.QrRemoteSessionDetails
@@ -47,6 +48,9 @@ interface AssistantRepository {
 
     // Companion operations
     suspend fun getKagiCompanions(): List<KagiCompanion>
+
+    // Lens operations
+    suspend fun getLenses(): List<AssistantLens>
 
     // Multipart requests - now returns Flow
     fun sendMultipartRequest(
@@ -132,6 +136,10 @@ class AssistantRepositoryImpl(
 
     override suspend fun getKagiCompanions(): List<KagiCompanion> = withContext(Dispatchers.IO) {
         assistantClient.getKagiCompanions()
+    }
+
+    override suspend fun getLenses(): List<AssistantLens> = withContext(Dispatchers.IO) {
+        assistantClient.getLenses()
     }
 
     override fun sendMultipartRequest(
