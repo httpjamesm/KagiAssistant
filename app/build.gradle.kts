@@ -14,8 +14,8 @@ android {
         applicationId = "space.httpjames.kagiassistantmaterial"
         minSdk = 33
         targetSdk = 36
-        versionCode = 12
-        versionName = "1.10.1"
+        versionCode = 13
+        versionName = "1.11.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
