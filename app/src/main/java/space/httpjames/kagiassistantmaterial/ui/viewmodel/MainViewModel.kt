@@ -881,9 +881,9 @@ class MainViewModel(
         val messageCenterState = _messageCenterState.value
         val draftText = messageCenterState.text
         val trimmedDraftText = draftText.trim()
-        val selectedProfile = getProfile()
         val searchEnabled = messageCenterState.isSearchEnabled
         val selectedLensId = if (searchEnabled) messageCenterState.selectedLens?.id else null
+        val cachedMessageProfile = getEffectiveProfile()?.copy(internetAccess = searchEnabled)
         val attachmentUris = messageCenterState.attachmentUris
         val optimisticDocuments = attachmentUris.map { uriStr ->
             val uri = uriStr.toUri()
@@ -922,7 +922,7 @@ class MainViewModel(
             branchIds = branchIdContext,
             markdownContent = "",
             metadata = emptyMap(),
-            profile = selectedProfile
+            profile = cachedMessageProfile
         )
         updateSession(sessionKey) { it.copy(inProgressAssistantMessageId = inProgressId) }
         _messageCenterState.update { it.copy(text = "", attachmentUris = emptyList()) }
